@@ -201,6 +201,7 @@ G_VPI_KEEP = "op_vpi_nr_plans"
 G_VPI_SF = "op_vpi_skip_first"
 G_RVH_AM_RR = "op_rvh_AM_nr_check_assigned_rrs"
 G_RVH_AM_TI = "op_rvh_AM_nr_test_best_insertions"
+G_RVH_SB = "op_rh_check_shift_behavior"
 
 #PT Optimizer
 G_RA_PT_N_HB = "op_pt_n_heatbaths"
@@ -518,6 +519,37 @@ G_V_TYPE = "vehicle_type"
 G_V_INIT_NODE = "final_node_index"
 G_V_INIT_TIME = "final_time"
 G_V_INIT_SOC = "final_soc"
+G_V_FINAL_PS = "satisfied_passengers"
+G_V_INIT_SHIFT_TIME = "final_shift_time"
+G_V_INIT_BREAK_TIMES = "final_break_times"
+G_V_INIT_BREAK_POINTS = "final_break_points"
+G_V_INIT_BW_SHIFTS = "final_bw_shifts"
+G_V_INIT_SHIFT_TYPE = "shift_type"
+
+# Vehicle Shift Output
+# --------------------
+G_V_DRIVER = "has_driver?"
+G_VD_SHIFT_COUNT = "on_which_day"
+
+G_VD_WORKED_TOTAL = "worked_total"
+G_VD_SELECTED_SHIFT_TIME = "selected_shift_time"
+G_VD_WORKED_TODAY = "worked_today"
+G_VD_TOTAL_OVERTIME = "total_overtime"
+G_VD_OVERTIME_TODAY = "overtime_today"
+G_VD_OVERTIME_EXPECTED = "expected_overtime"
+
+G_VD_RESTED_TOTAL = "rested_total"
+G_VD_SELECTED_REST_TIME = "selected_rest_time"
+G_VD_SELECTED_BREAK_NO = "selected_number_of_breaks"
+G_VD_TAKEN_BREAK_NO = "number_of_taken_breaks"
+
+class DRIVER_SHIFTS(Enum):
+    DAY_SHIFT = (0, "day_shift")
+    NIGHT_SHIFT = (1, "night_shift")
+
+    @DynamicClassAttribute
+    def shift_name(self):
+        return self._value_[1]
 
 # Vehicle Status
 # --------------
@@ -536,6 +568,8 @@ class VRL_STATES(Enum):
     TO_CHARGE = (12, "to_charge")
     TO_DEPOT = (13, "to_depot")
     TO_RESERVATION = (14, "to_reservation")
+    ON_BREAK = (15, "on_break")
+    ON_SHIFT_BREAK = (16, "on_shift_break")
 
     @DynamicClassAttribute
     def value(self):
@@ -554,7 +588,7 @@ G_DRIVING_STATUS = [VRL_STATES.ROUTE, VRL_STATES.REPOSITION, VRL_STATES.TO_CHARG
 G_REVENUE_STATUS = [VRL_STATES.BOARDING, VRL_STATES.WAITING, VRL_STATES.ROUTE, VRL_STATES.REPOSITION] # [1, 4, 10, 11]
 G_LAZY_STATUS = [VRL_STATES.WAITING] # [4]     # VRLs not actively planned and dont do anything (i.e. waiting)
 G_LOCK_DURATION_STATUS = [VRL_STATES.BLOCKED_INIT, VRL_STATES.BOARDING, VRL_STATES.BOARDING_WITH_CHARGING] # [-1, 1, 3]
-G_INACTIVE_STATUS = [VRL_STATES.OUT_OF_SERVICE, VRL_STATES.TO_DEPOT, VRL_STATES.CHARGING, VRL_STATES.TO_CHARGE]
+G_INACTIVE_STATUS = [VRL_STATES.OUT_OF_SERVICE, VRL_STATES.TO_DEPOT, VRL_STATES.CHARGING, VRL_STATES.TO_CHARGE, VRL_STATES.ON_BREAK, VRL_STATES.ON_SHIFT_BREAK]
 
 # TODO # after ISTTT: define all vehicle states
 
@@ -579,6 +613,21 @@ G_VR_REPLAY_ROUTE = "trajectory"
 G_VR_TOLL = "toll"
 G_VR_CHARGING_UNIT = "charging_unit"
 G_VR_CHARGING_POWER = "charging_power"
+G_VR_LEG_REMAINING_SHIFT = "remaining_shift"
+G_VR_LEG_CHARGING_DUR = "charge_and_rest_duration"
+G_VR_LEG_DECREASED_SHIFT = "decreased_shift"
+G_VR_LEG_REMAINING_BREAK = "remaining_break"
+G_VR_LEG_FROM_BREAKS = "decreased_from_planned_breaks"
+G_VR_LEG_DECREASED_BREAK = "decreased_break"
+G_VR_LEG_DECREASED_BWS_BREAK = "decreased_bws"
+G_VR_BREAK_POINT = "break_point"
+G_VR_BREAK_DURATION = "selected_break_duration"
+G_VR_BWS_BREAK_DURATION = "selected_bws_break_duration"
+G_CLOCK_START = "start_time"
+G_CLOCK_FIN = "finish_time"
+G_VR_ON_SHIFT_BREAK = "was_on_shift_break?"
+G_VR_ON_BREAK = "was_on_break?"
+
 
 # Vehicle Type
 # ------------
@@ -590,8 +639,26 @@ G_VTYPE_BATTERY_SIZE = "battery_size [kWh]"
 G_VTYPE_RANGE = "range [km]"
 G_VTYPE_HOME_CHARGING_POWER = "home charging power [kW]"
 G_VTYPE_MAX_PARCELS = "maximum_parcels"
+G_VTYPE_SHIFT_FILE = "shift_file"
 
-
+# -------------------------------------------------------------------------------------------------------------------- #
+# shift behavior
+G_STANDARD_MIN_SHIFT_TIME = "min_shift_time"
+G_STANDARD_MAX_SHIFT_TIME = "max_shift_time"
+G_STANDARD_MIN_BREAK_TIME = "min_break_time"
+G_STANDARD_MAX_BREAK_TIME = "max_break_time"
+G_STANDARD_BW_SHIFTS = "break_bw_shifts"
+G_STANDARD_MIN_WEEK_TIME = "min_week_time"
+G_STANDARD_MAX_WEEK_TIME = "max_week_time"
+G_MIN_NUMBER_BREAKS = "min_number_of_breaks"
+G_MAX_NUMBER_BREAKS = "max_number_of_breaks"
+G_SIM_START_DAY = "sim_start_day"
+G_SIM_START_HOUR = "sim_start_hour"
+G_EARLIEST_DAY = "earliest_day"
+G_LATEST_DAY = "latest_day"
+G_EARLIEST_NIGHT = "earliest_night"
+G_LATEST_NIGHT = "latest_night"
+G_NIGHTSHIFT_NO = "number_of_night"
 # -------------------------------------------------------------------------------------------------------------------- #
 # Fleet Control
 # #############

@@ -59,6 +59,15 @@ class ChargingThresholdPublicInfrastructure(ChargingBase):
                             is_charging_required = True
             elif veh_obj.soc < self.soc_threshold:
                 is_charging_required = True
+            
+            shift_check = self.fleetctrl.rv_heuristics.get(G_RVH_SB, 0)
+            # if vehicle starts shift break, driver directly charges the vehicle (unless it is %50) ------------
+            if veh_obj.status == VRL_STATES.ON_SHIFT_BREAK and last_soc < 0.5:
+                is_charging_required = True 
+                if len(veh_obj.assigned_route) > 0:
+                    if veh_obj.assigned_route[0].status == VRL_STATES.TO_CHARGE or veh_obj.assigned_route[0].status == VRL_STATES.CHARGING or veh_obj.assigned_route[0].status == VRL_STATES.WAITING: 
+                        is_charging_required = False
+            # -----------------------------------------------------------------------------------------------------------------------------
 
             if is_charging_required is True:
                 LOG.debug(f"charging required for vehicle {veh_obj}")
@@ -72,6 +81,15 @@ class ChargingThresholdPublicInfrastructure(ChargingBase):
                         # pick those with earliest finish
                         ch_op_best = min(charging_possibilities, key=lambda x:x[3])
                         if best_charging_poss is None or ch_op_best[3] < best_charging_poss[3]:
+                            if veh_obj.driver is not None and shift_check:
+                                # ensure you are within the shift or within the break
+                                next_hour = ((ch_op_best[3]-last_time) + veh_obj.driver.current_hour)/3600
+                                if next_hour >= 24:
+                                    next_hour -= 24
+                                if veh_obj.status != VRL_STATES.ON_SHIFT_BREAK and veh_obj.driver.order_chrono(next_hour, veh_obj.driver.planned_hour/3600, veh_obj.driver.planned_hour_start/3600) == 1: 
+                                    continue
+                                elif veh_obj.status == VRL_STATES.ON_SHIFT_BREAK and (ch_op_best [3]-last_time >= veh_obj.driver.st_bw_shifts or veh_obj.driver.order_chrono(next_hour, veh_obj.driver.planned_hour/3600, veh_obj.driver.planned_hour_start/3600) == 1 ):
+                                    continue 
                             best_charging_poss = ch_op_best
                             best_ch_op = ch_op
                 if best_charging_poss is not None:

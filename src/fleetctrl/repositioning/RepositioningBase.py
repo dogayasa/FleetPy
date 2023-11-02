@@ -147,6 +147,9 @@ class RepositioningBase(ABC):
             zone_dict[zone_id] = [0, [], []]
         for vid, current_veh_plan in self.fleetctrl.veh_plans.items():
             veh_obj = self.fleetctrl.sim_vehicles[vid]
+            # don't consider the vehicles on break 
+            if veh_obj.status == VRL_STATES.ON_BREAK or veh_obj.status == VRL_STATES.ON_SHIFT_BREAK:
+                continue
             # 1) idle vehicles
             if not current_veh_plan.list_plan_stops:
                 zone_id = self.zone_system.get_zone_from_pos(veh_obj.pos)
@@ -226,18 +229,31 @@ class RepositioningBase(ABC):
         """
         # v0) randomly pick vehicle, randomly pick destination node in destination zone
         random.seed(sim_time)
-        veh_obj = random.choice(list_veh_to_consider)
-        veh_plan = self.fleetctrl.veh_plans[veh_obj.vid]
-        destination_node = self.zone_system.get_random_centroid_node(destination_zone_id)
-        LOG.debug("repositioning {} to zone {} with centroid {}".format(veh_obj.vid, destination_zone_id,
-                                                                        destination_node))
-        if destination_node < 0:
-            destination_node = self.zone_system.get_random_node(destination_zone_id)
-        ps = RoutingTargetPlanStop((destination_node, None, None), locked=lock, planstop_state=G_PLANSTOP_STATES.REPO_TARGET)
-        veh_plan.add_plan_stop(ps, veh_obj, sim_time, self.routing_engine)
-        self.fleetctrl.assign_vehicle_plan(veh_obj, veh_plan, sim_time)
-        if lock:
-            self.fleetctrl.lock_current_vehicle_plan(veh_obj.vid)
+        loop = True
+        veh_obj = None 
+        # pick a vehicle until task is feasible
+        while loop and len(list_veh_to_consider) > 0:
+            veh_obj = random.choice(list_veh_to_consider)
+            veh_plan = self.fleetctrl.veh_plans[veh_obj.vid]
+            destination_node = self.zone_system.get_random_centroid_node(destination_zone_id)
+            LOG.debug("repositioning {} to zone {} with centroid {}".format(veh_obj.vid, destination_zone_id,
+                                                                            destination_node))
+            if destination_node < 0:
+                destination_node = self.zone_system.get_random_node(destination_zone_id)
+            ps = RoutingTargetPlanStop((destination_node, None, None), locked=lock, planstop_state=G_PLANSTOP_STATES.REPO_TARGET)
+            veh_plan.add_plan_stop(ps, veh_obj, sim_time, self.routing_engine)
+            self.fleetctrl.assign_vehicle_plan(veh_obj, veh_plan, sim_time) 
+            if lock:
+                self.fleetctrl.lock_current_vehicle_plan(veh_obj.vid)
+            if len(veh_obj.assigned_route) == 0 or veh_plan.feasible == False:
+                list_veh_to_consider.remove(veh_obj)
+                veh_obj = None
+            else:
+                loop = False
+        
+        if veh_obj == None:
+            return None
+        
         return [veh_obj]
 
     def _compute_reachability_adjusted_zone_imbalances(self, sim_time, list_zone_imbalance_weights):

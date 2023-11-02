@@ -121,11 +121,27 @@ class PoolingInsertionHeuristicOnly(FleetControlBase):
             list_tuples = insertion_with_heuristics(sim_time, prq, self, force_feasible_assignment=True)
             if len(list_tuples) > 0:
                 (vid, vehplan, delta_cfv) = min(list_tuples, key=lambda x:x[2])
+                # add break after 4 hours if necessary
+                if self.sim_vehicles[vid].driver is not None and self.sim_vehicles[vid].driver.four_hour_zone and self.rv_heuristics[G_RVH_SB]:
+                    self.sim_vehicles[vid].driver.break_time_points.insert(0,self.sim_vehicles[vid].driver.selected_shift_time - self.sim_vehicles[vid].driver.shift_time+sum(vehplan.shift_decreases)+1)
+                    self.sim_vehicles[vid].driver.break_time_durations.insert(0,900)
+                    self.sim_vehicles[vid].driver.number_of_breaks += 1 
+                    self.sim_vehicles[vid].driver.ready_for_break = True
+                                   
                 self.tmp_assignment[rid_struct] = vehplan
                 offer = self._create_user_offer(prq, sim_time, vehplan)
                 LOG.debug(f"new offer for rid {rid_struct} : {offer}")
+                LOG.info(f"Vehicle {vid} is assigned with request {rid_struct} from {prq.o_pos[0]} to {prq.d_pos[0]}\n")
+                # add boarding points to the list
+                if self.sim_vehicles[vid].driver is not None and len(vehplan.vid_shift_decreases) and self.rv_heuristics[G_RVH_SB]:
+                    self.sim_vehicles[vid].driver.assumed_shift_time =  self.sim_vehicles[vid].driver.shift_time - vehplan.vid_shift_decreases[vid]
+                if prq.o_pos not in self.sim_vehicles[vid].boarding_alighting_points:
+                    self.sim_vehicles[vid].boarding_alighting_points.append(prq.o_pos)
+                if prq.d_pos not in self.sim_vehicles[vid].boarding_alighting_points:
+                    self.sim_vehicles[vid].boarding_alighting_points.append(prq.d_pos)
             else:
                 LOG.debug(f"rejection for rid {rid_struct}")
+                LOG.info(f"Request {rid_struct} is rejected")
                 self._create_rejection(prq, sim_time)
         # record cpu time
         dt = round(time.perf_counter() - t0, 5)

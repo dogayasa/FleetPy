@@ -5,7 +5,7 @@ from src.simulation.Vehicles import SimulationVehicle
 from src.routing.NetworkBase import NetworkBase
 from src.fleetctrl.pooling.immediate.searchVehicles import veh_search_for_immediate_request,\
                                                             veh_search_for_reservation_request
-from src.fleetctrl.pooling.immediate.SelectRV import filter_directionality, filter_least_number_tasks
+from src.fleetctrl.pooling.immediate.SelectRV import filter_directionality, filter_least_number_tasks, filter_enough_shift_time
 from src.misc.globals import *
 import numpy as np
 from typing import Callable, List, Dict, Any, Tuple
@@ -432,10 +432,12 @@ def immediate_insertion_with_heuristics(sim_time : int, prq : PlanRequest, fleet
         rv_vehicles = list(selected_veh)
 
     # 4) insertion processes
+    shift_check = fleetctrl.rv_heuristics.get(G_RVH_SB, 0)
     insertion_return_list = insert_prq_in_selected_veh_list(rv_vehicles, fleetctrl.veh_plans, prq, fleetctrl.vr_ctrl_f,
                                                             fleetctrl.routing_engine, fleetctrl.rq_dict, sim_time,
                                                             fleetctrl.const_bt, fleetctrl.add_bt,
-                                                            force_feasible_assignment, fleetctrl.rv_heuristics)
+                                                            force_feasible_assignment, fleetctrl.rv_heuristics, shift_check)
+
 
     # 5) post insertion vehicle selection processes
     max_rq_plans = fleetctrl.rv_heuristics.get(G_RA_MAX_RP, None)
@@ -543,7 +545,7 @@ def reservation_insertion_with_heuristics(sim_time : int, prq : PlanRequest, fle
 def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehicle], vid_to_vehplan_assignments : Dict[Any, VehiclePlan],
                                     prq : PlanRequest, obj_function : Callable, routing_engine : NetworkBase, rq_dict : Dict[Any, PlanRequest],
                                     sim_time : int, const_bt : int, add_bt : int, force_feasible_assignment : bool=True,
-                                    insert_heuristic_dict : Dict={}):
+                                    insert_heuristic_dict : Dict={}, shift_check=False):
     """This method can be used to return a list of RV entries (vid, vehplan, delta_cfv) from a list of selected
     vehicles, whereas only the currently assigned vehicle plan is assumed and different VPI (vehicle plan insertion)
     heuristics can be triggered to limit the insertions.
@@ -560,6 +562,7 @@ def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehic
     :param force_feasible_assignment: if True, a feasible solution is assigned even with positive control function value
     :param insert_heuristic_dict: dictionary which enables the use of heuristic insertion methods (instead of exhaustive
                 search, which is default)
+    :param shift_check: if True check the shift behavior 
     :return: list of (vid, vehplan, delta_cfv) tuples
     :rtype: list
     """
@@ -572,8 +575,14 @@ def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehic
         skip_first_pos = False
     #
     insertion_return_list = []
+    #assumed_shift_str = f"\n\nVehicle assignment for request {prq.get_rid()} is starting at {sim_time}\n"
+    assumed_shift_str = ""
+    accepted_overtimes = {}
+    feasible_routes = 0
     for veh_obj in selected_veh_obj_list:
         veh_plan = vid_to_vehplan_assignments[veh_obj.vid]
+        if sum(veh_plan.shift_decreases) >= 14400:
+            continue
         current_vehplan_utility = veh_plan.get_utility()
         if current_vehplan_utility is None:
             current_vehplan_utility = obj_function(sim_time, veh_obj, veh_plan, rq_dict, routing_engine)
@@ -585,13 +594,38 @@ def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehic
         else:
             threshold = 0
         # TODO choice of insert function/heuristics per trigger
+        # plans_to_veh = {}
         for next_insertion_veh_plan in simple_insert(routing_engine, sim_time, veh_obj, veh_plan, prq,
                                                      const_bt, add_bt, skip_first_position_insertion=skip_first_pos):
             next_insertion_utility = obj_function(sim_time, veh_obj, next_insertion_veh_plan, rq_dict, routing_engine)
             delta_cfv = next_insertion_utility - current_vehplan_utility
             if threshold is None or delta_cfv < threshold:
+                # check if the vehicle can finish the veh_plan with its remaining shift time ----------------------------------------------------
+                if(shift_check and veh_obj.driver is not None):
+                    veh_obj.driver.four_hour_zone = False
+                    (next_insertion_veh_plan, feasible_overtime) = filter_enough_shift_time(next_insertion_veh_plan, veh_obj, routing_engine, prq)
+                    if feasible_overtime is not None:
+                        accepted_overtimes[veh_obj] = (next_insertion_veh_plan, delta_cfv, feasible_overtime)
+                        feasible_routes = 1 
+                        continue
+                    if next_insertion_veh_plan is None:
+                        continue
+                # -------------------------------------------------------------------------------------------------------------------------------
                 keep_plans.append((veh_obj.vid, next_insertion_veh_plan, delta_cfv))
                 keep_plans = sorted(keep_plans, key=lambda x: x[2])[:nr_plans_per_vehicle]
                 threshold = keep_plans[-1][2]
         insertion_return_list.extend(keep_plans)
+    
+    # if no vehicle is selected select a vehicle with feasible plan and the least overtime ----------------
+    # if feasible_routes == 0 than there is no feasible routes without checking shift behavior 
+    if len(insertion_return_list) == 0 and feasible_routes == 1 and shift_check: 
+        #only veh with drivers and they have all feasible veh_plans 
+        assumed_shift_str += f"There is no selected vehicles with enough time before shift end or break start to satisfy passenger.\n"
+        selected = min(accepted_overtimes.items(), key = lambda x: x[1][2])
+        selected[0].driver.overtime -= selected[1][2]
+        selected[0].driver.daily_overtime += selected[1][2]
+        insertion_return_list.append((selected[0].vid, selected[1][0], selected[1][1]))
+        assumed_shift_str += f"Vehicle {selected[0].vid} with the least overtime is assigned with the request\n"
+    # -----------------------------------------------------------------------------------------------------
+    LOG.info(assumed_shift_str)
     return insertion_return_list

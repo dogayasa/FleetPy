@@ -18,7 +18,16 @@ def veh_search_for_immediate_request(sim_time, prq, fleetctrl, list_excluded_vid
         veh_locations_to_vid = {}
         for vid, veh_obj in enumerate(fleetctrl.sim_vehicles):
             # do not consider inactive vehicles
-            if veh_obj.status == 5 or vid in list_excluded_vids:
+            if veh_obj.status == VRL_STATES.OUT_OF_SERVICE or veh_obj.status == VRL_STATES.ON_BREAK or veh_obj.status == VRL_STATES.ON_SHIFT_BREAK:
+                list_excluded_vids.append(veh_obj.vid)
+            else:
+                # if charging while on break or on shift break 
+                shift_check = fleetctrl.rv_heuristics.get(G_RVH_SB, 0)
+                if veh_obj.driver is not None and shift_check:
+                    if veh_obj.driver.on_shift_break or veh_obj.driver.on_break: 
+                        # was on shift break and now charging 
+                        list_excluded_vids.append(veh_obj.vid)
+            if vid in list_excluded_vids:
                 continue
             try:
                 veh_locations_to_vid[veh_obj.pos].append(vid)

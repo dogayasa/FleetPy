@@ -5,12 +5,27 @@ from __future__ import annotations
 import logging
 import pandas as pd
 import typing as tp
-
 # src imports
 # -----------
 from src.misc.globals import *
 from src.simulation.Legs import VehicleRouteLeg
 from src.simulation.StationaryProcess import ChargingProcess
+from src.simulation.Driver import * 
+
+if tp.TYPE_CHECKING:
+    from src.demand.TravelerModels import RequestBase
+    from src.routing.NetworkBase import NetworkBase
+    from src.fleetctrl.FleetControlBase import FleetControlBase
+
+if tp.TYPE_CHECKING:
+    from src.demand.TravelerModels import RequestBase
+    from src.routing.NetworkBase import NetworkBase
+    from src.fleetctrl.FleetControlBase import FleetControlBase
+
+if tp.TYPE_CHECKING:
+    from src.demand.TravelerModels import RequestBase
+    from src.routing.NetworkBase import NetworkBase
+    from src.fleetctrl.FleetControlBase import FleetControlBase
 
 if tp.TYPE_CHECKING:
     from src.demand.TravelerModels import RequestBase
@@ -23,7 +38,7 @@ LOG = logging.getLogger(__name__)
 # ------------------------
 # > guarantee consistent movements in simulation and output
 class SimulationVehicle:
-    def __init__(self, operator_id : int, vehicle_id : int, vehicle_data_dir : str, vehicle_type : str, routing_engine : NetworkBase, rq_db : tp.Dict[tp.Any, RequestBase], op_output : str,
+    def __init__(self, operator_id : int, vehicle_id : int, vehicle_data_dir : str, vehicle_type : str, routing_engine : NetworkBase, rq_db : tp.Dict[tp.Any, RequestBase], op_output : str, shift_output : str, break_output : str,
                  record_route_flag : bool, replay_flag : bool):
         """
         Initialization of vehicle in the simulation environment.
@@ -37,14 +52,17 @@ class SimulationVehicle:
         :param record_route_flag: generates path output if true
         :param replay_flag: generates extra output for replay visualization
         """
+        self.sim_start = None
         self.op_id = operator_id
         self.vid = vehicle_id
         self.routing_engine = routing_engine
         self.rq_db = rq_db
         self.op_output = op_output
+        self.shift_output = shift_output
+        self.break_output = break_output
         self.record_route_flag = record_route_flag
         self.replay_flag = replay_flag
-        #
+
         veh_data_f = os.path.join(vehicle_data_dir, f"{vehicle_type}.csv")
         veh_data = pd.read_csv(veh_data_f, header=None, index_col=0, squeeze=True)
         self.veh_type = veh_data[G_VTYPE_NAME]
@@ -55,6 +73,8 @@ class SimulationVehicle:
         self.battery_size = float(veh_data[G_VTYPE_BATTERY_SIZE])
         self.range = float(veh_data[G_VTYPE_RANGE])
         self.soc_per_m = 1/(self.range*1000)
+
+
         # current info
         self.status = VRL_STATES.IDLE
         self.pos = None
@@ -66,6 +86,10 @@ class SimulationVehicle:
         self.cl_start_time = None
         self.cl_start_pos = None
         self.cl_start_soc = None
+        self.cl_start_shift = None
+        self.cb_start_break = None
+        self.cb_start_bws = None
+        self.ch_duration = None
         self.cl_toll_costs = 0
         self.cl_driven_distance = 0.0
         self.cl_driven_route = []  # list of passed node_indices
@@ -74,7 +98,23 @@ class SimulationVehicle:
         self.cl_remaining_time = None
         self.cl_locked = False
         # TODO # check and think about consistent way for large time steps -> will vehicles wait until next update?
-        self.start_next_leg_first = False   # flag, if True, a new assignment has been made, which has to be activated first in the next call of update_veh_state
+        self.start_next_leg_first = False   # flag, if True, a new assignment has been made, which has to be activated first in the next call of update_veh_state        
+
+        # standard shift variables ------------------------------------------------------------
+        self.shift_check = 0
+        if "driver_vehtype" in self.veh_type and veh_data[G_VTYPE_SHIFT_FILE] is not None:
+            shift_data_f = os.path.join(vehicle_data_dir,"shift", veh_data[G_VTYPE_SHIFT_FILE])
+            shift_data = pd.read_csv(shift_data_f, header=None, index_col=0, squeeze=True)
+            self.driver = Driver(shift_data, self)
+            self.driver.randomize_starting_point(self, shift_data)
+            self.shift_check = 1 
+        else:
+            self.driver = None 
+        
+        self.const_bt = None
+        self.boarding_alighting_points = [] 
+        self.passengers = 0
+        # -------------------------------------------------------------------------------------
 
     def __str__(self):
         return f"veh {self.vid} at pos {self.pos} with soc {self.soc} leg status {self.status} remaining time {self.cl_remaining_time} number remaining legs: {len(self.assigned_route)} ob : {[rq.get_rid_struct() for rq in self.pax]}"
@@ -86,6 +126,7 @@ class SimulationVehicle:
         self.cl_start_time = None
         self.cl_start_pos = None
         self.cl_start_soc = None
+        self.cl_start_shift = None 
         self.cl_toll_costs = 0
         self.cl_driven_distance = 0.0
         self.cl_driven_route = []  # list of passed node_indices
@@ -107,9 +148,20 @@ class SimulationVehicle:
                             only the position and soc are used at the start_time of the simulation
         :return:
         """
+        self.sim_start = fleetctrl.sim_time
         self.status = VRL_STATES.IDLE
         self.pos = routing_engine.return_node_position(state_dict[G_V_INIT_NODE])
         self.soc = state_dict[G_V_INIT_SOC]
+        self.passengers = state_dict[G_V_FINAL_PS]
+        # we only access fleetctrl here and we need these values for assigning a vehicle with adequate shift time
+        self.const_bt = fleetctrl.const_bt 
+        self.shift_check = fleetctrl.rv_heuristics.get(G_RVH_SB, 0)
+
+        if self.driver is not None and self.shift_check: 
+            self.driver.set_initial_state(state_dict)
+            if self.driver.bw_shifts > 0:
+                self.status = VRL_STATES.ON_SHIFT_BREAK
+
         if veh_init_blocking:
             final_time = state_dict[G_V_INIT_TIME]
             if final_time > start_time:
@@ -128,7 +180,19 @@ class SimulationVehicle:
         run is used. Only the time is checked.
         :return: {}: key > value
         """
-        final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc}
+        if self.driver is not None and self.shift_check:
+            today = (self.driver.selected_shift_time-self.driver.shift_time)
+            if len(self.driver.break_time_durations) > 0:
+                current_break = (self.driver.break_time_durations[0]-self.driver.break_time)
+            else: 
+                current_break = 0
+            if len(self.driver.break_time_durations) > 0: 
+                # if its on break don't take the taken break again 
+                self.driver.break_time_durations[0] = self.driver.break_time
+            final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc, G_V_FINAL_PS:self.passengers, G_V_INIT_SHIFT_TIME:self.driver.shift_time, G_V_INIT_BREAK_TIMES:self.driver.break_time_durations, G_V_INIT_BREAK_POINTS:self.driver.break_time_points, G_V_INIT_BW_SHIFTS:self.driver.bw_shifts, G_V_INIT_SHIFT_TYPE:self.driver.shift_type, G_VD_WORKED_TOTAL:self.driver.worked + today, G_VD_TOTAL_OVERTIME:self.driver.total_overtime, G_VD_SHIFT_COUNT:self.driver.taken_shift, G_VD_RESTED_TOTAL:self.driver.rested + current_break }
+        else: 
+            final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc, G_V_FINAL_PS:self.passengers}
+
         if self.assigned_route:
             final_state_dict[G_V_INIT_NODE] = self.assigned_route[-1].destination_pos[0]
             last_time = sim_end_time
@@ -153,6 +217,13 @@ class SimulationVehicle:
         """ Starts the next leg using the route leg with a stationary process """
 
         # TODO: Generalize the current method and incoporate directly into the start_next_leg method
+        # report charging behavior ----------------------
+        if self.driver is not None and self.shift_check:
+            self.cb_start_break = self.driver.break_time 
+            self.cb_start_bws = self.driver.bw_shifts
+            self.ch_duration = 0
+        # -----------------------------------------------
+
         ca = self.assigned_route[0]
         remaining_time_to_start = ca.stationary_process.remaining_time_to_start(simulation_time)
         if remaining_time_to_start is not None and remaining_time_to_start > 0:
@@ -187,6 +258,13 @@ class SimulationVehicle:
             self.cl_start_time = simulation_time
             self.cl_start_pos = self.pos
             self.cl_start_soc = self.soc
+
+            if self.driver is not None and self.shift_check:
+                self.cl_start_shift = self.driver.shift_time
+                self.cb_start_break = self.driver.break_time
+                self.cb_start_bws = self.driver.bw_shifts
+                self.ch_duration = 0 # for waiting 
+
             self.cl_driven_distance = 0.0
             self.cl_driven_route = []
             ca = self.assigned_route[0]
@@ -291,9 +369,12 @@ class SimulationVehicle:
             # remove and record alighting passengers
             list_boarding_pax = [rq.get_rid_struct() for rq in ca.rq_dict.get(1, [])]
             list_alighting_pax = [rq.get_rid_struct() for rq in ca.rq_dict.get(-1, [])]
+            if self.pos in self.boarding_alighting_points and (len(list_boarding_pax)>0 or len(list_alighting_pax)>0):
+                self.boarding_alighting_points = list(filter(lambda a: a[0] != self.pos[0], self.boarding_alighting_points))
             for rq_obj in ca.rq_dict.get(-1, []):
                 try:
                     self.pax.remove(rq_obj)
+                    self.passengers += 1 
                 except:
                     LOG.warning(f"Could not remove passenger {rq_obj.get_rid_struct()} from vehicle {self.vid}"
                                 f" at time {simulation_time}")
@@ -306,7 +387,13 @@ class SimulationVehicle:
                 route_replay_str = ";".join([f"{self.cl_driven_route[i]}:{self.cl_driven_route_times[i]}"\
                                              for i in range(route_length)])
                 record_dict[G_VR_REPLAY_ROUTE] = route_replay_str
-            # default status and shift to next leg
+            
+            # shift behavior of the leg -----------------------------------------
+            if self.driver is not None and self.shift_check: 
+                record_dict[G_VR_LEG_REMAINING_SHIFT] = self.driver.shift_time
+                record_dict[G_VR_LEG_DECREASED_SHIFT] = self.cl_start_shift - self.driver.shift_time            
+            # -------------------------------------------------------------------
+
             self.reset_current_leg()
             self.assigned_route = self.assigned_route[1:]
             self.op_output.append(record_dict)
@@ -321,6 +408,134 @@ class SimulationVehicle:
                         f"even though no route is assigned!")
             return ([], {})
         
+    def end_break(self):
+            record_dict = {}
+            record_dict[G_V_OP_ID] = self.op_id
+            record_dict[G_V_VID] = self.vid
+            record_dict[G_V_TYPE] = self.veh_type
+            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
+            record_dict[G_VR_STATUS] = self.status.display_name
+            record_dict[G_CLOCK_START] = None
+            record_dict[G_CLOCK_FIN] = None
+
+            record_dict[G_VR_ON_SHIFT_BREAK] = self.driver.on_shift_break
+            record_dict[G_VR_ON_BREAK] = self.driver.on_break
+
+            record_dict[G_VD_RESTED_TOTAL] = self.driver.rested  
+            record_dict[G_VR_LEG_REMAINING_SHIFT] = self.driver.shift_time
+            record_dict[G_VD_SELECTED_BREAK_NO] = self.driver.selected_break_number
+            record_dict[G_VR_LEG_REMAINING_BREAK] = self.driver.number_of_breaks - 1
+            record_dict[G_VR_BREAK_POINT] = self.driver.break_time_points[0]
+            record_dict[G_VR_BREAK_DURATION] = self.driver.break_time_durations[0]
+            record_dict[G_VR_LEG_DECREASED_BREAK] = self.cb_start_break - self.driver.break_time 
+            record_dict[G_VR_BWS_BREAK_DURATION] = None                            
+            record_dict[G_VR_LEG_DECREASED_BWS_BREAK] = None  
+
+            record_dict[G_VR_LEG_CHARGING_DUR] = None
+            record_dict[G_VR_LEG_FROM_BREAKS] = None
+
+            self.cb_start_break = None
+            self.break_output.append(record_dict)
+
+    def end_charge_break(self, current_time):
+            record_dict = {}
+            record_dict[G_V_OP_ID] = self.op_id
+            record_dict[G_V_VID] = self.vid
+            record_dict[G_V_TYPE] = self.veh_type
+            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
+            record_dict[G_VR_STATUS] = self.status.display_name
+            record_dict[G_CLOCK_START] = None
+            record_dict[G_CLOCK_FIN] = None
+            
+            record_dict[G_VR_ON_SHIFT_BREAK] = self.driver.on_shift_break
+            record_dict[G_VR_ON_BREAK] = self.driver.on_break
+
+            record_dict[G_VD_RESTED_TOTAL] = self.driver.rested 
+            record_dict[G_VR_LEG_REMAINING_SHIFT] = self.driver.shift_time
+            record_dict[G_VD_SELECTED_BREAK_NO] = self.driver.selected_break_number
+            record_dict[G_VR_LEG_REMAINING_BREAK] = self.driver.number_of_breaks
+            record_dict[G_VR_BREAK_POINT] = current_time
+            record_dict[G_VR_BREAK_DURATION] = None
+            if self.driver.on_break:                        
+                record_dict[G_VR_LEG_DECREASED_BREAK] = self.ch_duration
+            else:
+                record_dict[G_VR_LEG_DECREASED_BREAK] = 0 
+            record_dict[G_VR_BWS_BREAK_DURATION] = self.driver.st_bw_shifts   
+            if self.driver.on_shift_break:                        
+                record_dict[G_VR_LEG_DECREASED_BWS_BREAK] = self.ch_duration
+            else:
+                record_dict[G_VR_LEG_DECREASED_BWS_BREAK] = 0  
+            
+            record_dict[G_VR_LEG_CHARGING_DUR] = self.ch_duration
+            record_dict[G_VR_LEG_FROM_BREAKS] = self.driver.decreased_break
+
+            self.ch_duration = 0
+            self.driver.decreased_break = 0      
+            self.break_output.append(record_dict)
+
+    def end_bws_break(self):
+            record_dict = {}
+            record_dict[G_V_OP_ID] = self.op_id
+            record_dict[G_V_VID] = self.vid
+            record_dict[G_V_TYPE] = self.veh_type
+            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
+            record_dict[G_VR_STATUS] = self.status.display_name
+            record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
+            record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
+
+            record_dict[G_VR_ON_SHIFT_BREAK] = self.driver.on_shift_break
+            record_dict[G_VR_ON_BREAK] = self.driver.on_break
+
+            record_dict[G_VD_RESTED_TOTAL] = self.driver.rested
+            record_dict[G_VR_LEG_REMAINING_SHIFT] = None
+            record_dict[G_VD_SELECTED_BREAK_NO] = None
+            record_dict[G_VR_LEG_REMAINING_BREAK] = None
+            record_dict[G_VR_BREAK_POINT] = None
+            record_dict[G_VR_BREAK_DURATION] = None
+            record_dict[G_VR_LEG_DECREASED_BREAK] = None 
+            record_dict[G_VR_BWS_BREAK_DURATION] = self.driver.selected_bws                             
+            record_dict[G_VR_LEG_DECREASED_BWS_BREAK] = self.cb_start_bws - self.driver.bw_shifts
+            
+            record_dict[G_VR_LEG_CHARGING_DUR] = None
+            record_dict[G_VR_LEG_FROM_BREAKS] = None              
+            
+            self.cb_start_bws = None
+            self.break_output.append(record_dict)
+
+    def end_shift(self):
+            record_dict = {}
+            today = (self.driver.selected_shift_time-self.driver.shift_time)
+            if len(self.driver.break_time_durations) > 0:
+                current_break = (self.driver.break_time_durations[0]-self.driver.break_time)
+            else: 
+                current_break = 0
+
+            record_dict[G_V_OP_ID] = self.op_id
+            record_dict[G_V_VID] = self.vid
+            record_dict[G_V_TYPE] = self.veh_type
+            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type
+            record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
+            record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
+
+            record_dict[G_VD_SHIFT_COUNT] = self.driver.taken_shift
+
+            record_dict[G_VD_WORKED_TOTAL] = self.driver.worked + today
+            record_dict[G_VD_SELECTED_SHIFT_TIME] = self.driver.selected_shift_time
+            record_dict[G_VD_WORKED_TODAY] = today
+
+            record_dict[G_VD_TOTAL_OVERTIME] = self.driver.total_overtime
+            record_dict[G_VD_OVERTIME_TODAY] = self.driver.daily_overtime
+            record_dict[G_VD_OVERTIME_EXPECTED] = self.driver.expected_overtime
+
+            record_dict[G_VD_RESTED_TOTAL] = self.driver.rested + current_break 
+            record_dict[G_VD_SELECTED_REST_TIME] = self.driver.planned_break 
+            record_dict[G_VD_SELECTED_BREAK_NO] = self.driver.selected_break_number
+            record_dict[G_VD_TAKEN_BREAK_NO] = self.driver.selected_break_number - self.driver.number_of_breaks
+            
+            record_dict[G_V_FINAL_PS] = self.passengers - self.driver.start_passengers
+            self.driver.start_passengers = self.passengers
+            self.shift_output.append(record_dict)      
+
     def assign_vehicle_plan(self, list_route_legs : tp.List[VehicleRouteLeg], sim_time:int, force_ignore_lock:bool = False):
         """This method enables the fleet control modules to assign a plan to the simulation vehicles. It ends the
         previously assigned leg and starts the new one if necessary.
@@ -333,6 +548,7 @@ class SimulationVehicle:
         """
         # transform rq from PlanRequest to SimulationRequest (based on RequestBase)
         # LOG.info(f"Vehicle {self.vid} before new assignment: {[str(x) for x in self.assigned_route]} at time {sim_time}")
+        # so that we can calculate actual shift decrease for a specific request 
         for vrl in list_route_legs:
             boarding_list = [self.rq_db[prq.get_rid()] for prq in vrl.rq_dict.get(1,[])]
             alighting_list = [self.rq_db[prq.get_rid()] for prq in vrl.rq_dict.get(-1,[])]
@@ -400,24 +616,36 @@ class SimulationVehicle:
                 dict_start_alighting[rid] = (c_time, self.pos)
             self.start_next_leg_first = False
         # LOG.debug(f"veh update state from {current_time} to {next_time}")
+        if self.driver is not None and self.shift_check: 
+            self.driver.update_week(next_time - current_time, self)
         while remaining_step_time > 0:
             # LOG.debug(f" veh moving c_time {c_time} remaining time step {remaining_step_time}")
             if self.status in G_DRIVING_STATUS:
-                # 1) moving: update pos and soc (call move along route with record_node_times=replay_flag)
+                # 1) moving: update pos, soc and shift_time (call move along route with record_node_times=replay_flag)
                 # LOG.debug(f"Vehicle {self.vid} is driving between {c_time} and {next_time}")
                 arrival_in_time_step = self._move(c_time, remaining_step_time, current_time)
                 if arrival_in_time_step == -1:
-                    #   a) move until next_time; do nothing
+                    #   a) move until next_time; shift time is decreased because driving 
+                    # shift time is decreased because driving for the whole remaining step time
+                    if self.driver is not None and self.status != VRL_STATES.TO_CHARGE and self.shift_check:
+                        self.driver.update_shift(remaining_step_time)
                     remaining_step_time = 0
                 else:
                     #   b) move up to destination [compute required time]
                     #       end task, start next task; continue with remaining time
                     remaining_step_time -= (arrival_in_time_step - c_time)
+                    # shift time is decreased because driving for only some amount of time 
+                    if self.driver is not None and self.status != VRL_STATES.TO_CHARGE and self.shift_check:
+                        sd = arrival_in_time_step - c_time
+                        self.driver.update_shift(sd)       
                     c_time = arrival_in_time_step
                     # LOG.debug(f"arrival in time step {arrival_in_time_step}")
                     add_alighting_rq, passed_VRL = self.end_current_leg(c_time)
                     for rid in add_alighting_rq:
                         dict_alighting_requests[rid] = c_time
+                    if len(add_alighting_rq)>0 and self.driver is not None and not self.assigned_route and self.shift_check: 
+                        # if aligthnin something we should check if driver needs o take a break
+                        self.driver.check_shift(self)
                     if isinstance(passed_VRL, list):
                         list_passed_VRL.extend(passed_VRL)
                     else:
@@ -428,25 +656,65 @@ class SimulationVehicle:
                             dict_boarding_requests[rid] = (c_time, self.pos)
                         for rid in start_alighting_rids:
                             dict_start_alighting[rid] = (c_time, self.pos)
+            elif self.status == VRL_STATES.ON_BREAK:
+                if remaining_step_time < self.driver.break_time:
+                    self.driver.break_time -= remaining_step_time
+                    remaining_step_time = 0
+                else: 
+                    remaining_step_time -= self.driver.break_time
+                    self.driver.break_time = 0 
+                if(self.driver.break_time == 0):
+                    self.driver.end_break(self)
+            elif self.status == VRL_STATES.ON_SHIFT_BREAK:
+                    if remaining_step_time < self.driver.bw_shifts:
+                        self.driver.bw_shifts -= remaining_step_time
+                        remaining_step_time = 0
+                    else: 
+                        remaining_step_time -= self.driver.bw_shifts   
+                        self.driver.bw_shifts = 0 
+                    if(self.driver.bw_shifts <= 0):
+                        self.driver.take_shift(self)         
             elif self.status != VRL_STATES.IDLE: #elif self.status != 0 and not self.status in G_IDLE_BUSY_STATUS:
                 # 2) non-moving:
                 # LOG.debug(f"Vehicle {self.vid} performs non-moving task between {c_time} and {next_time}")    
                 if remaining_step_time < self.cl_remaining_time:
                     #   a) duration is ongoing: do nothing
+                    if self.driver is not None and self.status == VRL_STATES.BOARDING and self.shift_check:
+                        self.driver.update_shift(remaining_step_time)
+                    elif self.driver is not None and (self.status == VRL_STATES.CHARGING or self.status == VRL_STATES.WAITING) and self.shift_check: 
+                        self.driver.rest_while_charging(self, remaining_step_time)
                     self.cl_remaining_time -= remaining_step_time
                     if self.assigned_route[0].stationary_process is not None:
                         self.assigned_route[0].stationary_process.update_state(remaining_step_time)
                     remaining_step_time = 0
                 else:
                     #   b) duration is passed; end task, start next task; continue with remaining time
+                    if self.driver is not None and self.status == VRL_STATES.BOARDING and self.shift_check:
+                        self.driver.update_shift(self.cl_remaining_time)
+                    elif self.driver is not None and (self.status == VRL_STATES.CHARGING or self.status == VRL_STATES.WAITING) and self.shift_check: 
+                        self.driver.rest_while_charging(self, self.cl_remaining_time)
+                        self.end_charge_break(current_time)
                     c_time += self.cl_remaining_time
                     # LOG.debug(f"cl remaining time {self.cl_remaining_time}")
                     remaining_step_time -= self.cl_remaining_time
                     if self.assigned_route[0].stationary_process is not None:
                         self.assigned_route[0].stationary_process.update_state(self.cl_remaining_time)
                     add_alighting_rq, passed_VRL = self.end_current_leg(c_time)
+                    # has to check shift behavior because it went charging when on break
+                    if self.driver is not None and self.shift_check:
+                        if self.driver.on_shift_break: 
+                            self.status = VRL_STATES.ON_SHIFT_BREAK
+                            if self.driver.bw_shifts <= 0:
+                                self.driver.take_shift(self)
+                        elif self.driver.on_break:
+                            self.status = VRL_STATES.ON_BREAK
+                            if self.driver.break_time <= 0:
+                                self.driver.end_break(self)
                     for rid in add_alighting_rq:
                         dict_alighting_requests[rid] = c_time
+                    if len(add_alighting_rq)>0 and self.driver is not None and not self.assigned_route and self.shift_check: 
+                        # if aligthnin something we should check if driver needs o take a break
+                        self.driver.check_shift(self)
                     list_passed_VRL.append(passed_VRL)
                     if self.assigned_route:
                         add_boarding_rids, start_alighting_rids = self.start_next_leg(c_time)
@@ -456,7 +724,19 @@ class SimulationVehicle:
                             dict_start_alighting[rid] = (c_time, self.pos)
             else:
                 # 3) idle without VRL
-                remaining_step_time = 0
+                # if with driver waiting for a passenger is also considered as working hours
+                if self.driver is not None and self.shift_check:
+                    if remaining_step_time < self.driver.shift_time or self.driver.shift_time < 0:
+                        self.driver.update_shift(remaining_step_time)
+                        remaining_step_time = 0
+                    else: 
+                        remaining_step_time -= self.driver.shift_time
+                        self.driver.update_shift(self.driver.shift_time)
+                    if(not self.assigned_route):
+                        self.driver.check_shift(self)
+                else:   
+                    remaining_step_time = 0
+        
         return dict_boarding_requests, dict_alighting_requests, list_passed_VRL, dict_start_alighting
 
     def update_route(self):

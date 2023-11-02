@@ -822,6 +822,8 @@ class NetworkBasic(NetworkBase):
         list_passed_node_times = []
         arrival_in_time_step = -1
         driven_distance = 0
+
+        driven_time = 0
         #
         c_cluster = None
         last_dyn_step = None

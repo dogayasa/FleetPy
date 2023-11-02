@@ -556,9 +556,13 @@ class VehiclePlan:
         self.vid = None
         self.feasible = None
         self.structural_feasible = True  # indicates if plan is in line with vehicle state ignoring time constraints
+        self.shift_decreases = [] 
         if not copy:
             self.vid = veh_obj.vid
             self.feasible = self.update_tt_and_check_plan(veh_obj, sim_time, routing_engine, keep_feasible=True)
+        
+        self.vid_shift_decreases = {}
+        
 
     def __str__(self):
         return "veh plan for vid {} feasible? {} : {} | pax info {}".format(self.vid, self.feasible,
@@ -574,6 +578,7 @@ class VehiclePlan:
         tmp_VehiclePlan.utility = self.utility
         tmp_VehiclePlan.pax_info = self.pax_info.copy()
         tmp_VehiclePlan.feasible = True
+        tmp_VehiclePlan.shift_decreases = self.shift_decreases.copy()
         return tmp_VehiclePlan
 
     def is_feasible(self) -> bool:
@@ -679,6 +684,7 @@ class VehiclePlan:
                         return False
                     # remove stop from plan
                     self.list_plan_stops = self.list_plan_stops[1:]
+                    self.shift_decreases = self.shift_decreases[1:]
                 else:
                     # plan infeasible as soon as anybody boarded or alighted the vehicle
                     if vrl.rq_dict.get(1) or vrl.rq_dict.get(-1):
@@ -841,10 +847,16 @@ class VehiclePlan:
                 self.pax_info[rid] = [rq.pu_time]
             #LOG.verbose("init pax {} | {} | {}".format(c_pax, veh_obj.pax, self.pax_info))
         # LOG.debug(f"c_time 1 {c_time}")
+        shift_decrease = 0
+        temp_shift_decreases = []
         for i in range(start_stop_index, len(self.list_plan_stops)):
+            shift_check = True
             pstop = self.list_plan_stops[i]
+            if pstop.get_charging_task_id() is not None:
+                shift_check = False
         #for i, pstop in enumerate(self.list_plan_stops[start_stop_index:], start=start_stop_index):
             pstop_pos = pstop.get_pos()
+            tt = 0
             if c_pos != pstop_pos:
                 if not is_feasible and not keep_feasible:
                     # LOG.debug(f" -> break because infeasible | is feasible {is_feasible} keep_feasible {keep_feasible}")
@@ -852,6 +864,7 @@ class VehiclePlan:
                 _, tt, tdist = routing_engine.return_travel_costs_1to1(c_pos, pstop_pos)
                 c_pos = pstop_pos
                 c_time += tt
+                shift_decrease += tt
                 # LOG.debug(f"c_time 2 {c_time}")
 
                 c_soc -= veh_obj.compute_soc_consumption(tdist)
@@ -859,7 +872,6 @@ class VehiclePlan:
                     is_feasible = False
                     infeasible_index = i
                     # LOG.debug(" -> charging wrong")
-
             if c_pos == pstop_pos:
 
                 last_c_time = c_time
@@ -907,7 +919,35 @@ class VehiclePlan:
                     c_soc += veh_obj.compute_soc_charging(pstop.get_charging_power(), c_time - last_c_time)
                     c_soc = max(c_soc, 1.0)
                 pstop.set_planned_arrival_and_departure_soc(last_c_soc, c_soc)
-                    
+        
+            if is_feasible and len(self.shift_decreases) != len(self.list_plan_stops):
+                    if shift_check:
+                        temp_shift_decreases.append(tt)
+                    else:
+                        # if charging sd is 0 
+                        temp_shift_decreases.append(0)
+
+        # if shift time isn't enough for repositioning, just make it infeasible ------------
+        last = self.list_plan_stops[len(self.list_plan_stops)-1]
+        if veh_obj.driver is not None and last.get_state() == G_PLANSTOP_STATES.REPO_TARGET and veh_obj.shift_check: 
+            # calculate boarding times------------------------------------------------------------------------------
+            number_stops = len(veh_obj.boarding_alighting_points)
+            shift_decrease += veh_obj.const_bt * (number_stops+2)
+            if veh_obj.driver.shift_time - shift_decrease <= 0: 
+                is_feasible = False
+                infeasible_index = len(self.list_plan_stops)-1
+                keep_feasible = False
+                self.feasible = False
+        # ----------------------------------------------------------------------------------
+
+        # change the current shift decreases for every edge --------------------------------
+        if is_feasible and len(self.shift_decreases) != len(self.list_plan_stops):
+            if start_stop_index >= len(self.shift_decreases):
+                self.shift_decreases.extend(temp_shift_decreases)
+            else:
+                self.shift_decreases[start_stop_index:] = temp_shift_decreases.copy()
+        # ----------------------------------------------------------------------------------
+
         if keep_feasible and not is_feasible:
             for i, p_stop in enumerate(self.list_plan_stops):
                 if i > infeasible_index:

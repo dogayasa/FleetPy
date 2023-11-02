@@ -1,0 +1,2 @@
+op_module,scenario_name,rq_file,op_fleet_composition,op_rh_check_shift_behavior,op_rvh_nr_least_load
+PoolingIRSOnly,smaller_fleet_5_days_hetero,demand_nyc_2019_0.05.csv,2019_fiat_500e_driver_vehtype_SF_HT:12;2019_nissan_leaf_driver_vehtype_SF_HT:12;2022_bmw_i4_driver_vehtype_SF_HT:13;2019_fiat_500e:12;2019_nissan_leaf:13;2022_bmw_i4:13,1,10

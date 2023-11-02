@@ -32,6 +32,7 @@ from src.fleetctrl.pooling.GeneralPoolingFunctions import get_assigned_rids_from
 if TYPE_CHECKING:
     from src.routing.NetworkBase import NetworkBase
     from src.simulation.Vehicles import SimulationVehicle
+    from src.simulation.Driver import * 
     from src.infra.Zoning import ZoneSystem
     from src.infra.ChargingInfrastructure import OperatorChargingAndDepotInfrastructure, PublicChargingInfrastructureOperator
     from src.simulation.StationaryProcess import ChargingProcess
@@ -193,6 +194,9 @@ class FleetControlBase(metaclass=ABCMeta):
         max_req_plans = operator_attributes.get(G_RA_MAX_RP)
         if not pd.isnull(max_req_plans):
             self.rv_heuristics[G_RA_MAX_RP] = int(max_req_plans)
+        check_shift_behavior = operator_attributes.get(G_RVH_SB)
+        if not pd.isnull(check_shift_behavior):
+            self.rv_heuristics[G_RVH_SB] = int(check_shift_behavior)
         prt_strategy_str += f"\t RV Heuristics: {self.rv_heuristics}\n"
         prt_strategy_str += f"\t Stop-Insert Heuristics: {self.insertion_heuristics}\n"
 
@@ -473,7 +477,7 @@ class FleetControlBase(metaclass=ABCMeta):
         :type add_arg: not defined here
         """
         LOG.debug(f"assign to {veh_obj.vid} at time {sim_time} : {vehicle_plan}")
-        vehicle_plan.update_tt_and_check_plan(veh_obj, sim_time, self.routing_engine, keep_feasible=True)
+        is_feasible = vehicle_plan.update_tt_and_check_plan(veh_obj, sim_time, self.routing_engine, keep_feasible=True)
         if self._vid_to_assigned_charging_process.get(veh_obj.vid) is not None:
             veh_plan_ch_task = None
             for ps in vehicle_plan.list_plan_stops:
@@ -492,6 +496,10 @@ class FleetControlBase(metaclass=ABCMeta):
         if assigned_charging_task is not None:
             self._active_charging_processes[assigned_charging_task[0]] = assigned_charging_task[1]
             self._vid_to_assigned_charging_process[veh_obj.vid] = assigned_charging_task[0]
+        # if not feasible because shift time isn't enough don't assign with repositioning assignment. 
+        if len(vehicle_plan.list_plan_stops) > 0 and not is_feasible:
+            if vehicle_plan.list_plan_stops[len(vehicle_plan.list_plan_stops)-1].get_state() == G_PLANSTOP_STATES.REPO_TARGET:
+                return
         new_list_vrls = self._build_VRLs(vehicle_plan, veh_obj, sim_time)
         veh_obj.assign_vehicle_plan(new_list_vrls, sim_time, force_ignore_lock=force_assign)
         self.veh_plans[veh_obj.vid] = vehicle_plan

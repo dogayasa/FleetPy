@@ -1,10 +1,15 @@
 # private simulation scripts (private copies of bugfix_or_run.py with modifications for specific scenarios)
 run_private*.py
+!run_private_drivers_only.py
+!run_private_hetero_fleet.py
+!run_private_autonomous_only.py
 
 # data directories except for example
 data/demand/*
 !data/demand/example_demand
 !data/demand/example_parcel_demand
+!data/demand/8_days_nyc_demand
+!data/demand/5_days_nyc_demand
 data/fleetctrl/initial_vehicle_distribution/*
 data/fleetctrl/elastic_pricing/*
 data/fleetctrl/elastic_fleet_size/*
@@ -13,6 +18,8 @@ data/fleetctrl/elastic_fleet_size/*
 data/infra/*
 data/networks/*
 !data/networks/example_network
+!data/networks/8_days_nyc_network
+!data/networks/5_days_nyc_network
 data/networks/example_network/ff/*
 data/networks/example_network/ch_graph/*
 data/networks/example_network/base/*.graph
@@ -21,15 +28,30 @@ data/vehicles/*
 !data/vehicles/default_vehtype.csv
 !data/vehicles/low_range_vehtype.csv
 !data/vehicles/default_parcel_veh.csv
+!data/vehicles/2019_fiat_500e*
+!data/vehicles/2019_nissan_leaf*
+!data/vehicles/2022_bmw_i4*
+!data/vehicles/driver_vehtype.csv
+!data/vehicles/low_range_driver_vehtype.csv
+!data/vehicles/shift
 data/zones/*
 !data/zones/example_zones
+!data/zones/8_days_nyc_zones
+!data/zones/5_days_nyc_zones
 !data/infra/example_infra
+!data/infra/8_days_nyc_infra
+!data/infra/5_days_nyc_infra
 
 # study directories except for example
 studies/*
 !studies/example_study
+!studies/AutonomousOnly
+!studies/DriversOnly
+!studies/HeterogeneousFleet
 studies/example_study/results/*
-
+studies/AutonomousOnly/results/*
+studies/DriversOnly/results/*
+studies/HeterogeneousFleet/results/*
 # system dependent C++ Router files
 src/routing/cpp_router/*.pyd
 src/routing/cpp_router/build/*

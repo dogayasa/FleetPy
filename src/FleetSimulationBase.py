@@ -264,6 +264,8 @@ class FleetSimulationBase:
         self.vehicle_update_order: tp.Dict[tp.Tuple[int, int], int] = {vid : 1 for vid in self.sim_vehicles.keys()} #value defines the order in whichvehicles are updated (i.e. charging first)
         self.operators: tp.List[FleetControlBase] = []
         self.op_output = {}
+        self.shift_output = {}
+        self.break_output = {}
         self._load_fleetctr_vehicles()
 
         # call additional simulation environment specific init
@@ -279,6 +281,9 @@ class FleetSimulationBase:
         LOG.info(f"Initialization of scenario {self.scenario_name} successful.")
 
         # self.routing_engine.checkNetwork()
+
+        # output for active and on break vehicles 
+        self.record_shift_behavior = []
 
     def _load_demand_module(self):
         """ Loads some demand modules """
@@ -352,6 +357,8 @@ class FleetSimulationBase:
             operator_attributes = self.list_op_dicts[op_id]
             operator_module_name = operator_attributes[G_OP_MODULE]
             self.op_output[op_id] = []  # shared list among vehicles
+            self.shift_output[op_id] = []
+            self.break_output[op_id] = []
             if not operator_module_name == "LinebasedFleetControl":
                 fleet_composition_dict = operator_attributes[G_OP_FLEET]
                 list_vehicles = []
@@ -361,7 +368,7 @@ class FleetSimulationBase:
                         veh_type_list.append([op_id, vid, veh_type])
                         tmp_veh_obj = SimulationVehicle(op_id, vid, self.dir_names[G_DIR_VEH], veh_type,
                                                         self.routing_engine, self.demand.rq_db,
-                                                        self.op_output[op_id], route_output_flag,
+                                                        self.op_output[op_id], self.shift_output[op_id], self.break_output[op_id], route_output_flag,
                                                         replay_flag)
                         list_vehicles.append(tmp_veh_obj)
                         self.sim_vehicles[(op_id, vid)] = tmp_veh_obj
@@ -377,18 +384,42 @@ class FleetSimulationBase:
                 for vid, veh_type in init_vids.items():
                     tmp_veh_obj = SimulationVehicle(op_id, vid, self.dir_names[G_DIR_VEH], veh_type,
                                                         self.routing_engine, self.demand.rq_db,
-                                                        self.op_output[op_id], route_output_flag,
+                                                        self.op_output[op_id],  self.shift_output[op_id], self.break_output[op_id], route_output_flag,
                                                         replay_flag)
                     list_vehicles.append(tmp_veh_obj)
                     veh_type_list.append([op_id, vid, veh_type])
                     self.sim_vehicles[(op_id, vid)] = tmp_veh_obj
                 OpClass.continue_init(list_vehicles, self.start_time)
                 self.operators.append(OpClass)
+            self.print_initial_shifts()
+            self.print_break_numbers()
         veh_type_f = os.path.join(self.dir_names[G_DIR_OUTPUT], "2_vehicle_types.csv")
         veh_type_df = pd.DataFrame(veh_type_list, columns=[G_V_OP_ID, G_V_VID, G_V_TYPE])
         veh_type_df.to_csv(veh_type_f, index=False)
         self.vehicle_update_order: tp.Dict[tp.Tuple[int, int], int] = {vid : 1 for vid in self.sim_vehicles.keys()}
 
+    def print_initial_shifts(self):
+        shift_times_str = ""
+        init = True
+        for entry in self.sim_vehicles.items():
+            if entry[1].driver is not None and entry[1].shift_check:  
+                if init:
+                    shift_times_str += "\nDrivers' initial shift times:\n"
+                    init = False
+                shift_times_str += f"Driver of vehicle {entry[0][1]} from Operator {entry[0][0]} has the initial shift time {entry[1].driver.selected_shift_time} and will take the {entry[1].driver.shift_type}.\n"
+        LOG.info(shift_times_str)
+
+    def print_break_numbers(self):
+        break_str = ""
+        init = True
+        for entry in self.sim_vehicles.items():
+            if entry[1].driver is not None and entry[1].shift_check: 
+                if init:
+                    break_str += "\nDrivers' number of breaks:\n"
+                    init = False
+                break_str += f"Driver of vehicle {entry[0][1]} from Operator {entry[0][0]} will take {entry[1].driver.number_of_breaks} breaks on {entry[1].driver.break_time_points}.\n"
+        LOG.info(break_str)
+    
     @staticmethod
     def get_directory_dict(scenario_parameters):
         """
@@ -507,6 +538,19 @@ class FleetSimulationBase:
                     init_state_info[G_V_INIT_NODE] = init_node# np.random.choice(init_node)
                     init_state_info[G_V_INIT_TIME] = self.scenario_parameters[G_SIM_START_TIME]
                     init_state_info[G_V_INIT_SOC] = 0.5 * (1 + np.random.random())
+                    init_state_info[G_V_FINAL_PS] = 0
+
+                    if veh_obj.driver is not None and veh_obj.shift_check:
+                        init_state_info[G_VD_WORKED_TOTAL] = veh_obj.driver.worked                        
+                        init_state_info[G_VD_TOTAL_OVERTIME] = veh_obj.driver.total_overtime
+                        init_state_info[G_VD_SHIFT_COUNT] = veh_obj.driver.taken_shift
+                        init_state_info[G_VD_RESTED_TOTAL] = veh_obj.driver.rested
+                        init_state_info[G_V_INIT_SHIFT_TYPE] = veh_obj.driver.shift_type                        
+                        init_state_info[G_V_INIT_SHIFT_TIME] = veh_obj.driver.shift_time
+                        init_state_info[G_V_INIT_BREAK_TIMES] = veh_obj.driver.break_time_durations
+                        init_state_info[G_V_INIT_BREAK_POINTS] = veh_obj.driver.break_time_points
+                        init_state_info[G_V_INIT_BW_SHIFTS] = veh_obj.driver.bw_shifts
+              
                     veh_obj.set_initial_state(op_fleetctrl, self.routing_engine, init_state_info,
                                                 self.scenario_parameters[G_SIM_START_TIME], self.init_blocking)
 
@@ -576,6 +620,58 @@ class FleetSimulationBase:
                 # LOG.info(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.")
                 LOG.debug(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.")
             self.operators[op_id].record_dynamic_fleetcontrol_output(force=force)
+
+            # SHIFTS
+            current_buffer_size = len(self.shift_output[op_id])
+            if (current_buffer_size and force) or current_buffer_size > BUFFER_SIZE:
+                op_shift_f = os.path.join(self.dir_names[G_DIR_OUTPUT], f"4-{op_id}_work_summary.csv")
+                if os.path.isfile(op_shift_f):
+                    write_mode = "a"
+                    write_header = False
+                else:
+                    write_mode = "w"
+                    write_header = True
+                tmp_df = pd.DataFrame(self.shift_output[op_id])
+                tmp_df.to_csv(op_shift_f, index=False, mode=write_mode, header=write_header)
+                self.shift_output[op_id].clear()
+                # LOG.info(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.")
+                LOG.debug(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.") 
+
+            # BREAKS
+            current_buffer_size = len(self.break_output[op_id])
+            if (current_buffer_size and force) or current_buffer_size > BUFFER_SIZE:
+                op_shift_f = os.path.join(self.dir_names[G_DIR_OUTPUT], f"5-{op_id}_break-stats.csv")
+                if os.path.isfile(op_shift_f):
+                    write_mode = "a"
+                    write_header = False
+                else:
+                    write_mode = "w"
+                    write_header = True
+                tmp_df = pd.DataFrame(self.break_output[op_id])
+                tmp_df.to_csv(op_shift_f, index=False, mode=write_mode, header=write_header)
+                self.break_output[op_id].clear()
+                # LOG.info(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.")
+                LOG.debug(f"\t ... just wrote {current_buffer_size} entries from buffer to stats of operator {op_id}.") 
+
+            # ACTIVE OR NOT ACTIVE
+            current_buffer_size = len(self.record_shift_behavior)
+            if (current_buffer_size and force) or current_buffer_size > BUFFER_SIZE:
+                op_av_f = os.path.join(self.dir_names[G_DIR_OUTPUT], f"6-availablity-stats.csv")
+                if os.path.isfile(op_av_f):
+                    write_mode = "a"
+                    write_header = False
+                else:
+                    write_mode = "w"
+                    write_header = True
+                tmp_df = pd.DataFrame(self.record_shift_behavior)
+                tmp_df.to_csv(op_av_f, index=False, mode=write_mode, header=write_header)
+                self.record_shift_behavior.clear()
+
+
+
+
+
+
 
     def update_sim_state_fleets(self, last_time, next_time, force_update_plan=False):
         """
@@ -720,7 +816,11 @@ class FleetSimulationBase:
                         pbar.update(cur_perc - pbar.n)
                         vehicle_counts = self.count_fleet_status()
                         info_dict = {"simulation_time": sim_time,
-                                     "driving": sum([vehicle_counts[x] for x in G_DRIVING_STATUS])}
+                                     "driving": sum([vehicle_counts[x] for x in G_DRIVING_STATUS]), 
+                                     "break": vehicle_counts[VRL_STATES.ON_BREAK],
+                                     "on shift break": vehicle_counts[VRL_STATES.ON_SHIFT_BREAK]}
+                        if sim_time % 900 == 0:
+                            self.record_shift_behavior.append(info_dict)
                         info_dict.update({x.display_name: vehicle_counts[x] for x in PROGRESS_LOOP_VEHICLE_STATUS})
                         pbar.set_postfix(info_dict)
                         self._update_realtime_plots_dict(sim_time)

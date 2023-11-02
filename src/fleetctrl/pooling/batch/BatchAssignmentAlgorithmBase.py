@@ -23,6 +23,7 @@ class SimulationVehicleStruct():
         self.op_id = simulation_vehicle.op_id
         self.vid = simulation_vehicle.vid
 
+        self.driver = None
         self.status = simulation_vehicle.status
         self.pos = simulation_vehicle.pos
         self.soc = simulation_vehicle.soc

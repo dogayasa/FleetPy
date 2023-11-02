@@ -168,9 +168,11 @@ class PavoneHailingRepositioningFC(RepositioningBase):
                 list_idle_veh = cplan_arrival_idle_dict[origin_zone_id][2]
                 list_veh_obj_with_repos = self._od_to_veh_plan_assignment(sim_time, origin_zone_id,
                                                                           destination_zone_id, list_idle_veh, lock=lock)
-                list_veh_with_changes.extend([veh_obj.vid for veh_obj in list_veh_obj_with_repos])
-                for veh_obj in list_veh_obj_with_repos:
-                    cplan_arrival_idle_dict[origin_zone_id][2].remove(veh_obj)
+                # if it can't find a vehicle with enough shift time, list_veh_obj_with_repos will be None
+                if list_veh_obj_with_repos is not None:
+                    list_veh_with_changes.extend([veh_obj.vid for veh_obj in list_veh_obj_with_repos])
+                    for veh_obj in list_veh_obj_with_repos:
+                        cplan_arrival_idle_dict[origin_zone_id][2].remove(veh_obj)
         return list_veh_with_changes
 
     def _optimization_gurobi(self, sim_time, list_zones, v_i_e_dict, v_i_d_dict, number_idle_vehicles, zone_dict):

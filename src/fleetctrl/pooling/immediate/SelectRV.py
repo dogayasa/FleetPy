@@ -1,5 +1,12 @@
 import numpy as np
+from src.simulation.Vehicles import SimulationVehicle
+from src.simulation.Driver import Driver
+from src.fleetctrl.planning.VehiclePlan import VehiclePlan
+from src.routing.NetworkBase import NetworkBase
+from src.fleetctrl.planning.PlanRequest import PlanRequest
 
+import logging
+LOG = logging.getLogger(__name__)
 
 def filter_directionality(prq, list_veh_obj, nr_best_veh, routing_engine, selected_veh):
     """This function filters the nr_best_veh from list_veh_obj according to the difference in directionality between
@@ -80,3 +87,47 @@ def filter_least_number_tasks(list_veh_obj, nr_best_veh, selected_veh):
                 break
     return return_list
 
+def filter_enough_shift_time(veh_plan : VehiclePlan, veh_obj : SimulationVehicle, routing_engine : NetworkBase, prq : PlanRequest):
+    
+    shift_decrease = sum(veh_plan.shift_decreases)
+
+    # calculate boarding times------------------------------------------------------------------------------
+    number_stops = len(veh_obj.boarding_alighting_points)
+    shift_decrease += veh_obj.const_bt * number_stops
+    if prq.o_pos not in veh_obj.boarding_alighting_points:
+        shift_decrease += veh_obj.const_bt
+    if prq.d_pos not in veh_obj.boarding_alighting_points:
+        shift_decrease += veh_obj.const_bt
+
+    
+    # check if feasible ------------------------------------------------------------------------------------
+    feasible_overtime = None
+    c_time = veh_obj.driver.selected_shift_time - veh_obj.driver.shift_time
+    next_c_time = c_time + shift_decrease
+
+    # for 4h without break 
+    if veh_obj.driver.without_break + shift_decrease >= 13500 and veh_obj.driver.without_break + shift_decrease <= 15300:
+        if (len(veh_obj.driver.break_time_points) == 0 and (veh_obj.driver.shift_time-shift_decrease) >= 900) or (len(veh_obj.driver.break_time_points) > 0 and next_c_time + 1 <= veh_obj.driver.break_time_points[0] - 900):
+            veh_obj.driver.four_hour_zone = True
+    elif  veh_obj.driver.without_break + shift_decrease > 15300:
+        # not feasible 
+        veh_plan = None 
+        return (veh_plan, feasible_overtime)
+                
+    # for break 
+    if len(veh_obj.driver.break_time_points) > 0 and veh_obj.driver.break_time_points[0] <= next_c_time:
+        # not feasible 
+        veh_plan = None 
+        return (veh_plan, feasible_overtime)
+    
+    # for shift
+    if shift_decrease > veh_obj.driver.shift_time:
+        # check if driver can do this overtime
+        overtime = veh_obj.driver.calculate_overtime(shift_decrease)
+        if(veh_obj.driver.can_do_overtime(overtime)):
+            feasible_overtime = overtime
+        else:
+            veh_plan = None 
+        return (veh_plan, feasible_overtime)
+    
+    return (veh_plan, feasible_overtime)

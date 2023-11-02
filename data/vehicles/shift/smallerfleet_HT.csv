@@ -1,0 +1,16 @@
+min_shift_time, 28800
+max_shift_time, 36000
+min_break_time, 1200
+max_break_time, 1800
+break_bw_shifts, 39600
+min_week_time, 144000
+max_week_time, 172800
+min_number_of_breaks, 1
+max_number_of_breaks, 5
+sim_start_day,3 
+sim_start_hour,0
+earliest_day,6
+latest_day,12
+earliest_night,20
+latest_night,3 
+number_of_night,16

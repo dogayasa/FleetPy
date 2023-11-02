@@ -92,6 +92,9 @@ class ImmediateDecisionsSimulation(FleetSimulationBase):
                 LOG.debug(f"Request {rid}: Checking AMoD option of operator {op_id} ...")
                 # TODO # adapt fleet control
                 self.operators[op_id].user_request(rq_obj, sim_time)
+                # # for simulation output write assumed shift decreases for reqs
+                # if len(rq_obj.assumed_shift_decreases) != 0:
+                #     self.shift_decreases[rq_obj.rid] = (rq_obj.assumed_shift_decreases[rq_obj.rid],0)
                 amod_offer = self.operators[op_id].get_current_offer(rid)
                 LOG.debug(f"amod offer {amod_offer}")
                 if amod_offer is not None:
