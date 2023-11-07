@@ -106,7 +106,7 @@ class SimulationVehicle:
             shift_data_f = os.path.join(vehicle_data_dir,"shift", veh_data[G_VTYPE_SHIFT_FILE])
             shift_data = pd.read_csv(shift_data_f, header=None, index_col=0, squeeze=True)
             self.driver = Driver(shift_data, self)
-            self.driver.randomize_starting_point(self, shift_data)
+            self.driver.randomize_starting_point(self)
             self.shift_check = 1 
         else:
             self.driver = None 

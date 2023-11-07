@@ -20,6 +20,8 @@ data/networks/*
 !data/networks/example_network
 !data/networks/8_days_nyc_network
 !data/networks/5_days_nyc_network
+data/networks/8_days_nyc_network/base/dis_matrix.npy
+data/networks/8_days_nyc_network/base/tt_matrix.npy
 data/networks/example_network/ff/*
 data/networks/example_network/ch_graph/*
 data/networks/example_network/base/*.graph

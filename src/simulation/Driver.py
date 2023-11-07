@@ -26,7 +26,7 @@ class Driver:
         # SelectRV -> take break after 4h of working
         self.four_hour_zone = False
 
-        # standards (st for short) that won't be changed ------------------------
+        # standards (st) that won't be changed ------------------------
         self.min_shift_time = int(shift_data[G_STANDARD_MIN_SHIFT_TIME])
         self.max_shift_time = int(shift_data[G_STANDARD_MAX_SHIFT_TIME])
         self.min_break_time = int(shift_data[G_STANDARD_MIN_BREAK_TIME])
@@ -36,13 +36,12 @@ class Driver:
         self.st_bw_shifts = int(shift_data[G_STANDARD_BW_SHIFTS])
         self.min_num_breaks = int(shift_data[G_MIN_NUMBER_BREAKS])
         self.max_num_breaks = int(shift_data[G_MAX_NUMBER_BREAKS])
-        self.start_day = int(shift_data[G_SIM_START_DAY])
-        self.start_hour = int(shift_data[G_SIM_START_HOUR])
-        self.planned_hour = self.start_hour*3600
-        self.current_hour = self.planned_hour
+        self.planned_hour = 0 
+        self.current_hour = 0
         self.planned_hour_start = self.planned_hour
         night_shift_border = int(shift_data[G_NIGHTSHIFT_NO])
         self.check_input()
+        # input: how many night drivers there should be
         if(veh_obj.vid > night_shift_border):
              self.shift_type = DRIVER_SHIFTS.DAY_SHIFT
              self.preferred_earliest = int(shift_data[G_EARLIEST_DAY]) 
@@ -79,7 +78,7 @@ class Driver:
         
         # changed for every new week --------------------------------------------
         self.weekly_shift_time = self.min_week_time 
-        self.week = self.calculate_week()
+        self.week = 604800
         # overtime 
         self.overtime = self.max_week_time - self.min_week_time        
     
@@ -160,342 +159,122 @@ class Driver:
             # for the first break 
             self.break_time = self.break_time_durations[0]
     
-    def randomize_starting_point(self, veh_obj, shift_data):
+    def randomize_starting_point(self, veh_obj):
         """
         This function randomizes vehicle states in simulation start. 
         """
         # STARTING AT NIGHT - 23:00 - 03:00 ----------------------------------------------------------------------------------
-        if self.at_night(self.start_hour, int(shift_data[G_EARLIEST_NIGHT]), int(shift_data[G_LATEST_NIGHT]) ): 
-            # NIGHT_SHIFT at night -------------------------------------------------------------------------------------------
-            # at least 4 h between 00:00 and 07:00
-            if self.shift_type == DRIVER_SHIFTS.NIGHT_SHIFT: 
-                # at simulation time, driver could be already taken some shifts-----------
-                start_day = random.randint(1,4)
-                if start_day <= self.start_day:
-                    if self.start_hour >= int(shift_data[G_EARLIEST_NIGHT]): 
-                        self.taken_shift = random.randint(0,self.start_day-1)
-                    else: 
-                        self.taken_shift = random.randint(0,self.start_day-2)
-                    if self.taken_shift > 0:
-                            self.update_until_today(self.taken_shift)
-                # -------------------------------------------------------------------------
-                
-                # start hour may differ ---------------------------------------------------
-                if self.preferred_latest >= self.preferred_earliest:
-                    self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
-                    if self.selected_shift_start_hour >= 24:
-                        self.selected_shift_start_hour = self.selected_shift_start_hour - 24
-                else:
-                    hour = random.randint(self.preferred_earliest, self.preferred_latest+24)
-                    if hour >= 24:
-                        self.selected_shift_start_hour = hour - 24
-                    else: 
-                        self.selected_shift_start_hour = hour 
-                # -------------------------------------------------------------------------
+        # NIGHT_SHIFT at night -------------------------------------------------------------------------------------------
+        # at least 4 h between 00:00 and 07:00
+        if self.shift_type == DRIVER_SHIFTS.NIGHT_SHIFT: 
+            # when should the driver start his/her shifts on that week ----------------
+            start_day = random.randint(1,4)
 
-                self.planned_hour = self.selected_shift_start_hour*3600
-                self.planned_hour_start = self.planned_hour
-                
-                if start_day <= self.start_day: 
-                    chrono = self.order_chrono(self.selected_shift_start_hour, self.start_hour, int(shift_data[G_EARLIEST_NIGHT])) 
-                else: 
-                    chrono = 1 
-
-                # if already started their night shift ------------------------------------
-                if chrono == -1:
-                    self.current_hour = self.planned_hour
-                    worked_tdy = self.hour_difference(self.selected_shift_start_hour, self.start_hour)
-                    if self.taken_shift > 0: 
-                        # for end_bws in take_shift -----------------------
-                        self.selected_bws = self.st_bw_shifts
-                        self.planned_hour_start = self.planned_hour - self.selected_bws 
-                        if self.planned_hour_start < 0: 
-                            self.planned_hour_start += (24*3600)
-                        veh_obj.cb_start_bws = self.selected_bws 
-                        self.bw_shifts = 0
-                        self.on_shift_break = True 
-                        self.rested -= self.st_bw_shifts
-                        # -------------------------------------------------
-                    self.take_shift(veh_obj)
-                    self.current_hour = self.start_hour*3600
-
-                    # update acording to current time
-                    self.shift_time = self.shift_time - (worked_tdy*3600) 
-                    self.update_break_type(worked_tdy*3600)
-                    return
-                # if there is time until their start time---------------------------------- 
-                elif chrono == 1:
-                    self.on_shift_break = True
-                    self.shift_time = 0
-                    veh_obj.status = VRL_STATES.ON_SHIFT_BREAK
-
-                    # take bws break according to day ------
-                    self.bw_shifts = self.hour_difference(self.start_hour, self.selected_shift_start_hour) * 3600
-                    if self.start_day+1 < start_day and self.selected_shift_start_hour<self.start_hour: 
-                        self.bw_shifts += ((start_day-self.start_day-1)*24*3600)
-                    elif self.start_day < start_day and self.selected_shift_start_hour>=self.start_hour: 
-                        self.bw_shifts += ((start_day-self.start_day)*24*3600)
-                    # --------------------------------------
-
-                    # report break behavior ----------------
-                    self.planned_hour_start = self.planned_hour - max(self.bw_shifts,self.st_bw_shifts)
-                    if self.planned_hour_start < 0: 
-                        self.planned_hour_start += (24*3600)
-                    self.selected_bws = max(self.bw_shifts,self.st_bw_shifts)
-                    veh_obj.cb_start_bws = self.selected_bws 
-                    # --------------------------------------
-
-                    # if update_until_today is used --------
-                    if self.taken_shift > 1:
-                        self.rested -= max(self.bw_shifts,self.st_bw_shifts)
-                    # --------------------------------------
-                    return
-                # shift starts now --------------------------------------------------------
-                else:
-                    if self.taken_shift > 0: 
-                        self.planned_hour_start = self.current_hour - self.st_bw_shifts
-                        if self.planned_hour_start < 0: 
-                            self.planned_hour_start += (24*3600)
-                        self.on_shift_break = True 
-                        self.selected_bws = self.st_bw_shifts
-                        veh_obj.cb_start_bws = self.selected_bws 
-                        self.bw_shifts = 0
-                    self.take_shift(veh_obj)
-                    return
-        
-            # DAY_SHIFT at night ---------------------------------------------------------------------------------------------
-            else: 
-                # UPDATE: worked & rested & weekly_shift_time ----------------------------
-                start_day = random.randint(1,4)
-                if start_day <= self.start_day:
-                    if self.start_hour >= int(shift_data[G_EARLIEST_NIGHT]): 
-                        self.taken_shift = random.randint(1,self.start_day)
-                        if self.taken_shift > 1:
-                            self.update_until_today(self.taken_shift)
-                    else: 
-                        self.taken_shift = random.randint(1,self.start_day-1)
-                        if self.taken_shift > 1:
-                            self.update_until_today(self.taken_shift-1)
-                # -------------------------------------------------------------------------
-
-                # start hour may differ ---------------------------------------------------
-                bws_start_hour = random.randint(self.preferred_earliest*3600+self.min_shift_time, self.preferred_latest*3600+self.max_shift_time)
-                if bws_start_hour >= 24*3600:
-                     bws_start_hour -= 24*3600
-                # -------------------------------------------------------------------------
-
-                self.planned_hour = bws_start_hour
-                self.planned_hour_start = self.planned_hour
-
-                if start_day <= self.start_day: 
-                    earliest_day_end = ((int(shift_data[G_EARLIEST_DAY])*3600)+self.min_shift_time)/3600
-                    chrono = self.order_chrono(bws_start_hour/3600, self.start_hour,earliest_day_end) 
-                else:
-                    chrono = 0
-
-                # if already started their bws --------------------------------------------------------------------------------
-                if chrono == -1:
-                    self.current_hour = self.planned_hour
-                    if self.taken_shift == 1: 
-                        self.worked += self.min_shift_time
-                        self.weekly_shift_time -= self.worked
-                    done = self.hour_difference(bws_start_hour/3600, self.start_hour)
-                    self.take_bw_shifts(veh_obj)
-                    self.current_hour = self.start_hour*3600
-                    self.bw_shifts -= (done*3600) 
-                    return 
-                # if there is time until their bws -----------------------------------------------------------------------------
-                elif chrono == 1: 
-                    # we assume current shift time was selected as minimum shift time
-                    self.planned_hour_start = bws_start_hour - self.min_shift_time
-                    if self.planned_hour_start < 0: 
-                        self.planned_hour_start += (24*3600)
-                    if self.taken_shift > 1:
-                        self.worked -= self.min_shift_time # worked will updated in end_shift 
-                    elif self.taken_shift <= 1: 
-                        self.weekly_shift_time -= self.min_shift_time # worked will updated in end_shift 
-                        self.taken_shift = 1 
-                    self.selected_shift_time = self.min_shift_time
-                    self.init_break_type()
-                    self.shift_time = (self.hour_difference(self.start_hour, bws_start_hour/3600)) * 3600
-                    self.update_break_type(self.selected_shift_time-self.shift_time)
-                    self.continue_shift(veh_obj)
-                    return
-                else:
-                    self.take_bw_shifts(veh_obj)
-                    if start_day > self.start_day: 
-                        self.bw_shifts += ((start_day-self.start_day)*24*3600)
-                        self.selected_bws = self.bw_shifts
-                        veh_obj.cb_start_bws = self.selected_bws
-                    else:
-                        if self.taken_shift == 1: 
-                            self.weekly_shift_time -= self.min_shift_time
-                            self.worked += self.min_shift_time 
-                    return 
-            # ----------------------------------------------------------------------------------------------------------------
-        else:
-            # DAY_SHIFT at day -----------------------------------------------------------------------------------------------
-            if self.shift_type == DRIVER_SHIFTS.DAY_SHIFT:
-                # at simulation time, driver could be already taken some shifts-----------
-                start_day = random.randint(1,4)
-                if start_day <= self.start_day:
-                    self.taken_shift = random.randint(0,self.start_day-1)
-                    if self.taken_shift > 0:
-                        self.update_until_today(self.taken_shift)
-                # -------------------------------------------------------------------------
-
-                # start hour may differ ---------------------------------------------------
+            # start hour may differ ---------------------------------------------------
+            if self.preferred_latest >= self.preferred_earliest:
                 self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
-                if self.selected_shift_start_hour >= 24:
-                    self.selected_shift_start_hour = self.selected_shift_start_hour - 24
-                # -------------------------------------------------------------------------
-       
-                self.planned_hour = self.selected_shift_start_hour*3600
-                self.planned_hour_start = self.planned_hour
-                
-                if start_day <= self.start_day: 
-                    chrono = self.order_chrono(self.selected_shift_start_hour, self.start_hour, int(shift_data[G_EARLIEST_DAY])) 
-                else:
-                    chrono = 1 
+            else:
+                self.selected_shift_start_hour = self.control_hour(random.randint(self.preferred_earliest, self.preferred_latest+24))
+            # -------------------------------------------------------------------------
 
-                # if already started their day shift ------------------------------------
-                if chrono == -1:
-                    # self.update_week(self.start_day, self.selected_shift_start_hour)
-                    worked_tdy = self.hour_difference(self.selected_shift_start_hour, self.start_hour)
-                    self.current_hour = self.planned_hour
-                    if self.taken_shift > 0: 
-                        self.selected_bws = self.st_bw_shifts
-                        self.planned_hour_start = self.planned_hour - self.selected_bws 
-                        if self.planned_hour_start < 0: 
-                            self.planned_hour_start += (24*3600)
-                        veh_obj.cb_start_bws = self.selected_bws 
-                        self.bw_shifts = 0
-                        self.on_shift_break = True 
-                        self.rested -= self.st_bw_shifts
-                    self.take_shift(veh_obj)
-                    self.current_hour = self.start_hour * 3600
-                    self.shift_time = self.shift_time - (worked_tdy*3600) 
-                    self.update_break_type(worked_tdy*3600)
-                    return
-                # if there is time until their start time 
-                elif chrono == 1:
-                    self.on_shift_break = True
-                    self.shift_time = 0
-                    veh_obj.status = VRL_STATES.ON_SHIFT_BREAK
-
-                    # take bws break according to day ------
-                    self.bw_shifts = self.hour_difference(self.start_hour, self.selected_shift_start_hour) * 3600
-                    if self.start_day < start_day and self.selected_shift_start_hour >= self.start_hour: 
-                        self.bw_shifts += ((start_day-self.start_day)*24*3600)
-                    elif self.start_day < start_day and self.selected_shift_start_hour < self.start_hour: 
-                        self.bw_shifts += ((start_day-self.start_day-1)*24*3600)
-                    # --------------------------------------
-
-                    # report break behavior ----------------
-                    self.planned_hour_start = self.planned_hour - max(self.bw_shifts,self.st_bw_shifts)
-                    if self.planned_hour_start < 0: 
-                        self.planned_hour_start += (24*3600)
-                    self.selected_bws =  max(self.bw_shifts,self.st_bw_shifts)
-                    veh_obj.cb_start_bws = self.selected_bws 
-                    # --------------------------------------
-                   
-                    # if update_until_today is used --------
-                    if self.taken_shift > 0:
-                        self.rested -=  max(self.bw_shifts,self.st_bw_shifts)
-                    elif self.taken_shift == 1:
-                        self.rested = 0
-                    # --------------------------------------
-                    return
-                else:
-                    if self.taken_shift > 0: 
-                        self.planned_hour_start = self.current_hour - self.st_bw_shifts
-                        if self.planned_hour_start < 0: 
-                            self.planned_hour_start += (24*3600)
-                        self.selected_bws = self.st_bw_shifts
-                        veh_obj.cb_start_bws = self.selected_bws 
-                        self.bw_shifts = 0
-                        self.on_shift_break = True 
-                    self.take_shift(veh_obj)
-                    return 
-                
-            # NIGHT_SHIFT at day ---------------------------------------------------------------------------------------------
+            self.planned_hour = self.selected_shift_start_hour*3600
+            self.planned_hour_start = self.planned_hour
+            
+            if start_day == 1: 
+                chrono = self.order_chrono(self.selected_shift_start_hour, 0, self.preferred_earliest) 
             else: 
-                # UPDATE: worked & rested & weekly_shift_time -----------
-                start_day = random.randint(1,4)
-                if start_day <= self.start_day:
-                    self.taken_shift = random.randint(1,self.start_day-1)
-                    if self.taken_shift > 1:
-                        self.update_until_today(self.taken_shift-1)
-                # -------------------------------------------------------
+                chrono = 1 
 
-                # start hour may differ ---------------------------------------------------
-                if self.preferred_latest >= self.preferred_earliest:
-                    bws_start_hour = random.randint(self.preferred_earliest*3600+self.min_shift_time, self.preferred_latest*3600+self.max_shift_time)
-                    if bws_start_hour >= 24*3600:
-                        bws_start_hour = (bws_start_hour - 24*3600)
-                else:
-                    hour = random.randint(self.preferred_earliest*3600+self.min_shift_time, (self.preferred_latest+24)*3600+self.max_shift_time)
-                    if hour >= 24*3600:
-                        bws_start_hour = (hour - 24*3600)
-                    else: 
-                        bws_start_hour = hour 
-                # -------------------------------------------------------------------------
+            # if already started their night shift ------------------------------------
+            if chrono == -1:
+                self.current_hour = self.planned_hour
+                worked_tdy = self.hour_difference(self.selected_shift_start_hour, 0)
+                self.take_shift(veh_obj)
+                self.current_hour = 0
+                # update according to current time
+                self.shift_time = self.shift_time - (worked_tdy*3600) 
+                self.update_break_type(worked_tdy*3600)
+                return
+            # if there is time until their start time---------------------------------- 
+            elif chrono == 1:
+                self.on_shift_break = True
+                self.shift_time = 0
+                veh_obj.status = VRL_STATES.ON_SHIFT_BREAK
 
-                self.planned_hour = bws_start_hour
-                self.planned_hour_start = self.planned_hour
+                # take bws break according to day ------
+                self.bw_shifts = self.hour_difference(0, self.selected_shift_start_hour) * 3600
+                if 1 < start_day: 
+                    self.bw_shifts += ((start_day-1)*24*3600)
+                # --------------------------------------
 
-                if start_day <= self.start_day: 
-                    earliest_day_end = ((int(shift_data[G_EARLIEST_NIGHT])*3600)+self.min_shift_time)/3600
-                    if earliest_day_end >= 24:
-                        earliest_day_end -=24
-                    chrono = self.order_chrono(bws_start_hour/3600, self.start_hour,earliest_day_end) 
-                else: 
-                    chrono = 0
-
-                # if already started their bws --------------------------------------------------------------------------------
-                if chrono == -1:
-                    self.current_hour = self.planned_hour
-                    if self.taken_shift == 1: 
-                        self.worked += self.min_shift_time
-                        self.weekly_shift_time -= self.worked
-                    if self.taken_shift == 1: 
-                        self.worked += self.min_shift_time
-                    done = self.hour_difference(bws_start_hour/3600, self.start_hour)
-                    self.take_bw_shifts(veh_obj)
-                    self.current_hour = self.start_hour*3600
-                    self.bw_shifts -= (done*3600) 
-                    return 
-                # if there is time until their bws -----------------------------------------------------------------------------
-                elif chrono == 1:
-                    self.planned_hour_start = bws_start_hour - self.min_shift_time
+                # report break behavior ----------------
+                if self.st_bw_shifts > self.bw_shifts:
+                    self.planned_hour_start = self.planned_hour - self.st_bw_shifts
                     if self.planned_hour_start < 0: 
                         self.planned_hour_start += (24*3600)
-                    if self.taken_shift > 1:
-                        self.worked -= self.min_shift_time # worked will updated in end_shift 
-                    elif self.taken_shift <= 1: 
-                        self.weekly_shift_time -= self.min_shift_time # worked will updated in end_shift 
-                        self.taken_shift = 1 
-                    self.selected_shift_time = self.min_shift_time
-                    self.init_break_type()
-                    # self.update_week(self.start_day, bws_start_hour/3600)
-                    self.shift_time = (self.hour_difference(self.start_hour, bws_start_hour/3600)) * 3600
-                    self.update_break_type(self.selected_shift_time-self.shift_time)
-                    self.continue_shift(veh_obj)
                 else:
-                    self.take_bw_shifts(veh_obj)
-                    if start_day > self.start_day and self.selected_shift_start_hour<self.preferred_earliest:  
-                        self.bw_shifts += ((start_day-self.start_day-1)*24*3600)
-                        self.selected_bws = self.bw_shifts
-                        veh_obj.cb_start_bws = self.selected_bws
-                    elif start_day > self.start_day and self.selected_shift_start_hour>=self.preferred_earliest:  
-                        self.bw_shifts += ((start_day-self.start_day)*24*3600)
-                        self.selected_bws = self.bw_shifts
-                        veh_obj.cb_start_bws = self.selected_bws
-                    else:
-                        if self.taken_shift == 1: 
-                            self.weekly_shift_time -= self.min_shift_time
-                            self.worked += self.min_shift_time 
-                    return              
+                    self.planned_hour_start = 0
+                self.selected_bws = max(self.bw_shifts,self.st_bw_shifts)
+                veh_obj.cb_start_bws = self.selected_bws 
+                # --------------------------------------
+                return
+            # shift starts now --------------------------------------------------------
+            else:
+                self.take_shift(veh_obj)
+                return
+    
+        # DAY_SHIFT at night ---------------------------------------------------------------------------------------------
+        else: 
+            start_day = random.randint(1,4)
+
+            # start hour may differ ---------------------------------------------------
+            bws_start_hour = random.randint(self.preferred_earliest*3600+self.min_shift_time, self.preferred_latest*3600+self.max_shift_time)
+            if bws_start_hour >= 24*3600:
+                    bws_start_hour -= 24*3600
+            # -------------------------------------------------------------------------
+
+            self.planned_hour = bws_start_hour
+            self.planned_hour_start = self.planned_hour
+
+            if start_day == 1: 
+                earliest_day_end = ((self.preferred_earliest*3600)+self.min_shift_time)/3600
+                chrono = self.order_chrono(bws_start_hour/3600, 0 ,earliest_day_end) 
+            else:
+                chrono = 0
+
+            # if already started their bws --------------------------------------------------------------------------------
+            if chrono == -1:
+                self.current_hour = self.planned_hour
+                done = self.hour_difference(bws_start_hour/3600, 0)
+                self.take_bw_shifts(veh_obj)
+                self.current_hour = 0
+                self.bw_shifts -= (done*3600) 
+                return 
+            # if there is time until their bws -----------------------------------------------------------------------------
+            elif chrono == 1: 
+                # we assume current shift time was selected as minimum shift time
+                self.planned_hour_start = bws_start_hour - self.min_shift_time
+                if self.planned_hour_start < 0: 
+                    self.planned_hour_start += (24*3600)
+                    
+                self.weekly_shift_time -= self.hour_difference(0, bws_start_hour/3600) # worked will updated in end_shift 
+                self.taken_shift = 1 
+
+                self.selected_shift_time = self.min_shift_time
+                self.init_break_type()
+                self.shift_time = (self.hour_difference(0, bws_start_hour/3600)) * 3600
+                self.update_break_type(self.selected_shift_time-self.shift_time)
+                self.continue_shift(veh_obj)
+                return
+            else:
+                self.take_bw_shifts(veh_obj)
+                if start_day > 1: 
+                    self.bw_shifts += ((start_day-1)*24*3600)
+                    self.selected_bws = self.bw_shifts
+                    veh_obj.cb_start_bws = self.selected_bws
+                return 
+        # ----------------------------------------------------------------------------------------------------------------
+                     
     # -------------------------------------------------------------------------------------
     
     # functions that start a shift behavior -----------------------------------------------
@@ -969,14 +748,12 @@ class Driver:
             return 1 
         else:
             return 0 
-    
-    def calculate_week(self):
-        """
-        This funcion calculates week remaining seconds according to start day and hour.
-        """
-        if self.start_day == 1:
-            return 604800 - (self.start_hour*3600)
-        return 604800 - ((((self.start_day-1)*24) + self.start_hour)*3600)
-    # -------------------------------------------------------------------------------------
+        
+    def control_hour(self, hour):
+        if hour >= 24:
+            return hour - 24
+        else: 
+            return hour 
+    # ------------------------------------------------------------------------------------
 
     
