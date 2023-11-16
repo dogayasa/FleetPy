@@ -110,7 +110,7 @@ class SimulationVehicle:
             self.shift_check = 1 
         else:
             self.driver = None 
-        
+    
         self.const_bt = None
         self.boarding_alighting_points = [] 
         self.passengers = 0

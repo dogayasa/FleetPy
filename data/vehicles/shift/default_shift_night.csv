@@ -7,8 +7,5 @@ min_week_time, 144000
 max_week_time, 172800
 min_number_of_breaks, 1
 max_number_of_breaks, 5
-earliest_day,6
-latest_day,12
-earliest_night,20
-latest_night,3 
-number_of_night,236
+earliest_start,20
+latest_start,3 

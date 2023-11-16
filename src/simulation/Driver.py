@@ -41,17 +41,24 @@ class Driver:
         self.current_hour = 0
         self.planned_hour_start = 0
 
-        night_shift_border = int(shift_data[G_NIGHTSHIFT_NO])
         self.check_input()
-        # input: how many night drivers there should be
-        if(veh_obj.vid > night_shift_border):
-             self.shift_type = DRIVER_SHIFTS.DAY_SHIFT
-             self.preferred_earliest = int(shift_data[G_EARLIEST_DAY]) 
-             self.preferred_latest = int(shift_data[G_LATEST_DAY]) 
-        else:
+        
+        # day or night ---------------------------------------------------------
+        self.preferred_earliest = int(shift_data[G_EARLIEST_START]) 
+        self.preferred_latest = int(shift_data[G_LATEST_START]) 
+        # -> if based on name? 
+        if "day" in veh_obj.veh_type:
+            self.shift_type = DRIVER_SHIFTS.DAY_SHIFT
+        elif "night" in veh_obj.veh_type: 
             self.shift_type = DRIVER_SHIFTS.NIGHT_SHIFT
-            self.preferred_earliest = int(shift_data[G_EARLIEST_NIGHT]) 
-            self.preferred_latest = int(shift_data[G_LATEST_NIGHT]) 
+        # if based on hour
+        """
+        check = self.order_chrono(self.preferred_earliest,3,18)
+        if check == -1 or check == 0: 
+            self.shift_type = DRIVER_SHIFTS.NIGHT_SHIFT
+        else:
+            self.shift_type = DRIVER_SHIFTS.DAY_SHIFT
+        """
         # -----------------------------------------------------------------------
 
         # changed for every new shift -------------------------------------------

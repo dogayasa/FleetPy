@@ -1,8 +1,8 @@
-vtype_name_full,2019_nissan_leaf_sl_plus_driver_vehtype
+vtype_name_full,2019_nissan_leaf_sl_plus_day_driver_vehtype
 maximum_passengers,5
 daily_fix_cost [cent],2500
 per_km_cost [cent],25
 battery_size [kWh],62
 range [km],346
 source,
-shift_file,diff_shift_start.csv
+shift_file,longer_shift_day.csv

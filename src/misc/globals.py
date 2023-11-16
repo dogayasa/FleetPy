@@ -652,11 +652,8 @@ G_STANDARD_MIN_WEEK_TIME = "min_week_time"
 G_STANDARD_MAX_WEEK_TIME = "max_week_time"
 G_MIN_NUMBER_BREAKS = "min_number_of_breaks"
 G_MAX_NUMBER_BREAKS = "max_number_of_breaks"
-G_EARLIEST_DAY = "earliest_day"
-G_LATEST_DAY = "latest_day"
-G_EARLIEST_NIGHT = "earliest_night"
-G_LATEST_NIGHT = "latest_night"
-G_NIGHTSHIFT_NO = "number_of_night"
+G_EARLIEST_START = "earliest_start"
+G_LATEST_START = "latest_start"
 # -------------------------------------------------------------------------------------------------------------------- #
 # Fleet Control
 # #############
