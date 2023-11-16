@@ -36,9 +36,11 @@ class Driver:
         self.st_bw_shifts = int(shift_data[G_STANDARD_BW_SHIFTS])
         self.min_num_breaks = int(shift_data[G_MIN_NUMBER_BREAKS])
         self.max_num_breaks = int(shift_data[G_MAX_NUMBER_BREAKS])
+
         self.planned_hour = 0 
         self.current_hour = 0
-        self.planned_hour_start = self.planned_hour
+        self.planned_hour_start = 0
+
         night_shift_border = int(shift_data[G_NIGHTSHIFT_NO])
         self.check_input()
         # input: how many night drivers there should be
@@ -174,7 +176,7 @@ class Driver:
             if self.preferred_latest >= self.preferred_earliest:
                 self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
             else:
-                self.selected_shift_start_hour = self.control_hour(random.randint(self.preferred_earliest, self.preferred_latest+24))
+                self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
             # -------------------------------------------------------------------------
 
             self.planned_hour = self.selected_shift_start_hour*3600
@@ -227,11 +229,8 @@ class Driver:
         else: 
             start_day = random.randint(1,4)
 
-            # start hour may differ ---------------------------------------------------
-            bws_start_hour = random.randint(self.preferred_earliest*3600+self.min_shift_time, self.preferred_latest*3600+self.max_shift_time)
-            if bws_start_hour >= 24*3600:
-                    bws_start_hour -= 24*3600
-            # -------------------------------------------------------------------------
+            # randomize start & stabilize time
+            bws_start_hour = self.second_stabilizer(random.randint(self.preferred_earliest*3600+self.min_shift_time, self.preferred_latest*3600+self.max_shift_time))
 
             self.planned_hour = bws_start_hour
             self.planned_hour_start = self.planned_hour
@@ -313,15 +312,11 @@ class Driver:
         # changed for every new shift --------------------
         self.selected_shift_time = self.shift_time
         self.planned_hour_start = self.planned_hour
-        self.planned_hour += self.selected_shift_time
-        if self.planned_hour >= 24*3600:
-            self.planned_hour -= (24*3600)
+        self.planned_hour = self.second_stabilizer(self.planned_hour + self.selected_shift_time)
         self.assumed_shift_time = self.selected_shift_time
         self.init_break_type()
         # just selected shifts are decrease from weekly st, not overtimes
-        self.planned_hour += self.planned_break
-        if self.planned_hour >= 24*3600:
-            self.planned_hour -= (24*3600)
+        self.planned_hour = self.second_stabilizer(self.planned_hour + self.planned_break)
         self.weekly_shift_time -= self.shift_time
         veh_obj.status = VRL_STATES.IDLE 
         self.taken_shift += 1
@@ -378,15 +373,9 @@ class Driver:
 
         # decide on the next shift start time & updated planned_hour ------------------------------------------
         if self.preferred_latest >= self.preferred_earliest:
-            self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
-            if self.selected_shift_start_hour >= 24:
-                self.selected_shift_start_hour = self.selected_shift_start_hour - 24           
+            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest))        
         else:
-            hour = random.randint(self.preferred_earliest, self.preferred_latest+24)
-            if hour >= 24:
-                self.selected_shift_start_hour = hour - 24
-            else: 
-                self.selected_shift_start_hour = hour 
+            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
 
         # update clock if necessary -------------------------------------------------------
         if self.current_hour != self.planned_hour:
@@ -429,9 +418,7 @@ class Driver:
                 self.break_time = 0
                 if duration != 0:
                     self.break_time -= duration
-                    self.planned_hour += duration
-                    if self.planned_hour >= 24*3600:
-                        self.planned_hour -= (24*3600)
+                    self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
                     duration = 0
             else:
                 self.break_time -= duration
@@ -443,9 +430,7 @@ class Driver:
                 self.bw_shifts = 0
                 if duration != 0:
                     self.bw_shifts -= duration
-                    self.planned_hour += duration
-                    if self.planned_hour >= 24*3600:
-                        self.planned_hour -= (24*3600)
+                    self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
                     duration = 0
             else:
                 self.bw_shifts -= duration
@@ -467,9 +452,7 @@ class Driver:
                     duration = 0
                     self.break_time_durations[0] = self.break_time
             if duration != 0:
-                self.planned_hour += duration
-                if self.planned_hour >= 24*3600:
-                    self.planned_hour -= (24*3600)
+                self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
                 duration = 0   
             if len(self.break_time_durations) == 0: 
                 self.ready_for_break = False   
@@ -490,11 +473,7 @@ class Driver:
         if self.preferred_latest >= self.preferred_earliest:
             self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
         else:
-            hour = random.randint(self.preferred_earliest, self.preferred_latest+24)
-            if hour >= 24:
-                self.selected_shift_start_hour = hour - 24
-            else: 
-                self.selected_shift_start_hour = hour 
+            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
         # -----------------------------------------------------------------------------------
 
         # calculate bws duration ------------------------------------------------------------
@@ -681,19 +660,6 @@ class Driver:
             self.ready_for_break = False
         self.number_of_breaks = len(self.break_time_points)
 
-    def at_night(self, x, night_begin, night_end):
-        """
-        This function is a helper for randomizing simulation start time. 
-        It checks if the start hour is at night. 
-        """
-        if night_end < night_begin:
-            if (x >= night_begin and x < 24) or (x >= 0 and x <= night_end):
-                return True
-        else: 
-            if (x >=night_begin and x <= night_end):
-                return True 
-        return False
-
     def update_until_today(self,bws_count):
         """
         This function is a helper for randomizing simulation start time. 
@@ -749,11 +715,17 @@ class Driver:
         else:
             return 0 
         
-    def control_hour(self, hour):
+    def hour_stabilizer(self, hour):
         if hour >= 24:
             return hour - 24
         else: 
             return hour 
+        
+    def second_stabilizer(self, second):
+        if second >= 24*3600:
+            return second - 24*3600
+        else: 
+            return second 
     # ------------------------------------------------------------------------------------
 
     
