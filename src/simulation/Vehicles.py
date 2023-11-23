@@ -189,7 +189,7 @@ class SimulationVehicle:
             if len(self.driver.break_time_durations) > 0: 
                 # if its on break don't take the taken break again 
                 self.driver.break_time_durations[0] = self.driver.break_time
-            final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc, G_V_FINAL_PS:self.passengers, G_V_INIT_SHIFT_TIME:self.driver.shift_time, G_V_INIT_BREAK_TIMES:self.driver.break_time_durations, G_V_INIT_BREAK_POINTS:self.driver.break_time_points, G_V_INIT_BW_SHIFTS:self.driver.bw_shifts, G_V_INIT_SHIFT_TYPE:self.driver.shift_type, G_VD_WORKED_TOTAL:self.driver.worked + today, G_VD_TOTAL_OVERTIME:self.driver.total_overtime, G_VD_SHIFT_COUNT:self.driver.taken_shift, G_VD_RESTED_TOTAL:self.driver.rested + current_break }
+            final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc, G_V_FINAL_PS:self.passengers, G_V_INIT_SHIFT_TIME:self.driver.shift_time, G_V_INIT_BREAK_TIMES:self.driver.break_time_durations, G_V_INIT_BREAK_POINTS:self.driver.break_time_points, G_V_INIT_BW_SHIFTS:self.driver.bw_shifts, G_VD_WORKED_TOTAL:self.driver.worked + today, G_VD_TOTAL_OVERTIME:self.driver.total_overtime, G_VD_SHIFT_COUNT:self.driver.taken_shift, G_VD_RESTED_TOTAL:self.driver.rested + current_break }
         else: 
             final_state_dict = {G_V_OP_ID:self.op_id, G_V_VID:self.vid, G_V_INIT_SOC:self.soc, G_V_FINAL_PS:self.passengers}
 
@@ -413,7 +413,6 @@ class SimulationVehicle:
             record_dict[G_V_OP_ID] = self.op_id
             record_dict[G_V_VID] = self.vid
             record_dict[G_V_TYPE] = self.veh_type
-            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
             record_dict[G_VR_STATUS] = self.status.display_name
             record_dict[G_CLOCK_START] = None
             record_dict[G_CLOCK_FIN] = None
@@ -442,7 +441,6 @@ class SimulationVehicle:
             record_dict[G_V_OP_ID] = self.op_id
             record_dict[G_V_VID] = self.vid
             record_dict[G_V_TYPE] = self.veh_type
-            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
             record_dict[G_VR_STATUS] = self.status.display_name
             record_dict[G_CLOCK_START] = None
             record_dict[G_CLOCK_FIN] = None
@@ -478,7 +476,6 @@ class SimulationVehicle:
             record_dict[G_V_OP_ID] = self.op_id
             record_dict[G_V_VID] = self.vid
             record_dict[G_V_TYPE] = self.veh_type
-            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type.shift_name
             record_dict[G_VR_STATUS] = self.status.display_name
             record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
             record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
@@ -513,7 +510,6 @@ class SimulationVehicle:
             record_dict[G_V_OP_ID] = self.op_id
             record_dict[G_V_VID] = self.vid
             record_dict[G_V_TYPE] = self.veh_type
-            record_dict[G_V_INIT_SHIFT_TYPE] = self.driver.shift_type
             record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
             record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
 

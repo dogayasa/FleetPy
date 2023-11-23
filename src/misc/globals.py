@@ -524,7 +524,6 @@ G_V_INIT_SHIFT_TIME = "final_shift_time"
 G_V_INIT_BREAK_TIMES = "final_break_times"
 G_V_INIT_BREAK_POINTS = "final_break_points"
 G_V_INIT_BW_SHIFTS = "final_bw_shifts"
-G_V_INIT_SHIFT_TYPE = "shift_type"
 
 # Vehicle Shift Output
 # --------------------

@@ -406,7 +406,7 @@ class FleetSimulationBase:
                 if init:
                     shift_times_str += "\nDrivers' initial shift times:\n"
                     init = False
-                shift_times_str += f"Driver of vehicle {entry[0][1]} from Operator {entry[0][0]} has the initial shift time {entry[1].driver.selected_shift_time} and will take the {entry[1].driver.shift_type}.\n"
+                shift_times_str += f"Driver of vehicle {entry[0][1]} from Operator {entry[0][0]} has the initial shift time {entry[1].driver.selected_shift_time}.\n"
         LOG.info(shift_times_str)
 
     def print_break_numbers(self):
@@ -545,7 +545,6 @@ class FleetSimulationBase:
                         init_state_info[G_VD_TOTAL_OVERTIME] = veh_obj.driver.total_overtime
                         init_state_info[G_VD_SHIFT_COUNT] = veh_obj.driver.taken_shift
                         init_state_info[G_VD_RESTED_TOTAL] = veh_obj.driver.rested
-                        init_state_info[G_V_INIT_SHIFT_TYPE] = veh_obj.driver.shift_type                        
                         init_state_info[G_V_INIT_SHIFT_TIME] = veh_obj.driver.shift_time
                         init_state_info[G_V_INIT_BREAK_TIMES] = veh_obj.driver.break_time_durations
                         init_state_info[G_V_INIT_BREAK_POINTS] = veh_obj.driver.break_time_points
