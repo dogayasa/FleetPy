@@ -478,7 +478,7 @@ class SimulationVehicle:
             record_dict[G_V_TYPE] = self.veh_type
             record_dict[G_VR_STATUS] = self.status.display_name
             record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
-            record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
+            record_dict[G_CLOCK_FIN] = self.driver.planned_hour_end / 3600
 
             record_dict[G_VR_ON_SHIFT_BREAK] = self.driver.on_shift_break
             record_dict[G_VR_ON_BREAK] = self.driver.on_break
@@ -511,11 +511,11 @@ class SimulationVehicle:
             record_dict[G_V_VID] = self.vid
             record_dict[G_V_TYPE] = self.veh_type
             record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
-            record_dict[G_CLOCK_FIN] = self.driver.planned_hour / 3600
+            record_dict[G_CLOCK_FIN] = self.driver.planned_hour_end / 3600
 
             record_dict[G_VD_SHIFT_COUNT] = self.driver.taken_shift
 
-            record_dict[G_VD_WORKED_TOTAL] = self.driver.worked + today
+            record_dict[G_VD_WORKED_TOTAL] = self.driver.worked
             record_dict[G_VD_SELECTED_SHIFT_TIME] = self.driver.selected_shift_time
             record_dict[G_VD_WORKED_TODAY] = today
 

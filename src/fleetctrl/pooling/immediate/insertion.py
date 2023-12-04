@@ -624,6 +624,7 @@ def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehic
         selected = min(accepted_overtimes.items(), key = lambda x: x[1][2])
         selected[0].driver.overtime -= selected[1][2]
         selected[0].driver.daily_overtime += selected[1][2]
+        selected[0].driver.planned_hour_end = selected[0].driver.second_stabilizer(selected[0].driver.planned_hour_end + selected[1][2])
         insertion_return_list.append((selected[0].vid, selected[1][0], selected[1][1]))
         assumed_shift_str += f"Vehicle {selected[0].vid} with the least overtime is assigned with the request\n"
     # -----------------------------------------------------------------------------------------------------

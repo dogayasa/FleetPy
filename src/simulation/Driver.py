@@ -37,7 +37,7 @@ class Driver:
         self.min_num_breaks = int(shift_data[G_MIN_NUMBER_BREAKS])
         self.max_num_breaks = int(shift_data[G_MAX_NUMBER_BREAKS])
 
-        self.planned_hour = 0 
+        self.planned_hour_end = 0 
         self.current_hour = 0
         self.planned_hour_start = 0
 
@@ -159,84 +159,82 @@ class Driver:
         This function randomizes vehicle states in simulation start. 
         """
 
-        # when should the driver start his/her shifts on that week ----------------
+        # on which day should the driver start his/her shifts on that week 
         start_day = random.randint(0,4)
 
-        # start hour may differ ---------------------------------------------------
-        if self.preferred_latest >= self.preferred_earliest:
-            self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
-        else:
-            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
-        # -------------------------------------------------------------------------
+        # start hour may also differ 
+        self.selected_shift_start_hour = self.randomize_time(self.preferred_earliest, self.preferred_latest)
 
-        # Limiting the start hour on sunday  --------------------------------------
+        # Limiting the start hour on sunday  
         if start_day == 0 and (24-(self.min_shift_time/3600)-5) > self.selected_shift_start_hour:
             start_day = 1
-        # -------------------------------------------------------------------------
 
-        self.planned_hour = self.selected_shift_start_hour*3600
-        self.planned_hour_start = self.planned_hour
+        # Defining the shift behavior interval 
+        self.planned_hour_end = self.selected_shift_start_hour*3600
+        self.planned_hour_start = self.planned_hour_end
         
+        # if already started the shift on sunday (before the simulation start)
         if start_day == 0: 
-            chrono = -1        
-        elif start_day == 1 and self.selected_shift_start_hour == 0:
-            chrono = 0 
-        else: 
-            chrono = 1 
+            self.current_hour = self.planned_hour_end
 
-        # if already started the shift on sunday ------------------------------------
-        if chrono == -1:
-            self.current_hour = self.planned_hour
-            worked_tdy = self.hour_difference(self.selected_shift_start_hour, 0)
+            # Calculate how much the driver worked before simulation
+            worked_bs = self.hour_difference(self.selected_shift_start_hour, 0)
+
             self.take_shift(veh_obj)
-            # update according to current time
-            if worked_tdy*3600 < self.shift_time:
+
+            # # the driver is already on shift at the sim start 
+            if worked_bs*3600 < self.shift_time:
                 self.current_hour = 0
-                self.shift_time = self.shift_time - (worked_tdy*3600) 
-                self.update_break_type(worked_tdy*3600)
+                self.shift_time = self.shift_time - (worked_bs*3600) 
+                self.worked -= (worked_bs*3600)
+                self.update_break_type(worked_bs*3600)
             else: 
-                if worked_tdy == self.shift_time:
-                    self.planned_hour = 0
+                # the driver starts its bws break at the sim start
+                if worked_bs == self.shift_time:
+                    self.planned_hour_end = 0
+
+                # the driver ends shift at the sim start or before bws start
                 self.reset_shift_variables()
                 self.weekly_shift_time= self.min_week_time
                 self.worked = 0
                 self.taken_shift = 0
-                self.current_hour = self.planned_hour
-                done = self.hour_difference(self.planned_hour/3600, 0)
+                self.current_hour = self.planned_hour_end
+
+                # the driver is already on bws break at the sim start
+                done = self.hour_difference(self.planned_hour_end/3600, 0)
                 self.take_bw_shifts(veh_obj)
                 self.current_hour = 0
-                self.bw_shifts -= (done*3600)  
-            return
-        # if there is time until their start time---------------------------------- 
-        elif chrono == 1:
+                self.bw_shifts -= (done*3600) 
+                self.rested -= (done*3600) 
+                LOG.info("hey")  
+        # shift starts now        
+        elif start_day == 1 and self.selected_shift_start_hour == 0:
+            self.take_shift(veh_obj) 
+        
+        # if there is time until their start time
+        else: 
+
+            # the driver starts its bws break or is already on bws break at the sim start  
             self.on_shift_break = True
             self.shift_time = 0
             veh_obj.status = VRL_STATES.ON_SHIFT_BREAK
 
-            # take bws break according to day ------
+            # calculate bws break duration according to the shift start day 
             self.bw_shifts = self.hour_difference(0, self.selected_shift_start_hour) * 3600
             if 1 < start_day: 
                 self.bw_shifts += ((start_day-1)*24*3600)
-            # --------------------------------------
 
-            # report break behavior ----------------
+            # to report break behavior, we need shift behavior interval 
             if self.st_bw_shifts > self.bw_shifts:
-                self.planned_hour_start = self.planned_hour - self.st_bw_shifts
+                self.planned_hour_start = self.planned_hour_end - self.st_bw_shifts
                 if self.planned_hour_start < 0: 
                     self.planned_hour_start += (24*3600)
+                self.rested -= (self.hour_difference(self.planned_hour_start/3600,0)*3600)
             else:
                 self.planned_hour_start = 0
-            self.selected_bws = max(self.bw_shifts,self.st_bw_shifts)
-            veh_obj.cb_start_bws = self.selected_bws 
-            # --------------------------------------
-            return
-        # shift starts now --------------------------------------------------------
-        else:
-            self.take_shift(veh_obj)
-            return
 
-        # ----------------------------------------------------------------------------------------------------------------
-                     
+            self.selected_bws = max(self.bw_shifts,self.st_bw_shifts)
+            veh_obj.cb_start_bws = self.selected_bws  
     # -------------------------------------------------------------------------------------
     
     # functions that start a shift behavior -----------------------------------------------
@@ -246,8 +244,8 @@ class Driver:
         It also ends the between shift break before starting shift.
         """
         # update clock if necessary -------------------------------------------------------
-        if self.current_hour != self.planned_hour:
-            self.planned_hour = self.current_hour
+        if self.current_hour != self.planned_hour_end:
+            self.planned_hour_end = self.current_hour
         # ---------------------------------------------------------------------------------
 
         # didn't start shift again --------------------------------------------------------
@@ -258,7 +256,7 @@ class Driver:
         # ---------------------------------------------------------------------------------
 
         # if not simulation begin shift break has to be reported and shift vars resetted --
-        if self.taken_shift != 0:
+        if self.on_shift_break:
             self.rested += veh_obj.cb_start_bws - self.bw_shifts               
             veh_obj.end_bws_break()
             self.reset_shift_variables()
@@ -274,12 +272,12 @@ class Driver:
         
         # changed for every new shift --------------------
         self.selected_shift_time = self.shift_time
-        self.planned_hour_start = self.planned_hour
-        self.planned_hour = self.second_stabilizer(self.planned_hour + self.selected_shift_time)
+        self.planned_hour_start = self.planned_hour_end
+        self.planned_hour_end = self.second_stabilizer(self.planned_hour_end + self.selected_shift_time)
         self.assumed_shift_time = self.selected_shift_time
         self.init_break_type()
         # just selected shifts are decrease from weekly st, not overtimes
-        self.planned_hour = self.second_stabilizer(self.planned_hour + self.planned_break)
+        self.planned_hour_end = self.second_stabilizer(self.planned_hour_end + self.planned_break)
         self.weekly_shift_time -= self.shift_time
         veh_obj.status = VRL_STATES.IDLE 
         self.taken_shift += 1
@@ -296,6 +294,7 @@ class Driver:
         # overtime 
         self.overtime = self.max_week_time - self.min_week_time
         self.total_overtime = 0
+        self.expected_overtime = self.daily_overtime
         self.daily_overtime = 0
         self.worked = 0
         self.rested = 0
@@ -334,25 +333,22 @@ class Driver:
 
         self.on_shift_break = True
 
-        # decide on the next shift start time & updated planned_hour ------------------------------------------
-        if self.preferred_latest >= self.preferred_earliest:
-            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest))        
-        else:
-            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
+        # decide on the next shift start time & updated planned_hour_end ------------------------------------------
+        self.selected_shift_start_hour = self.randomize_time(self.preferred_earliest, self.preferred_latest)
 
         # update clock if necessary -------------------------------------------------------
-        if self.current_hour != self.planned_hour:
-            self.planned_hour = self.current_hour
+        if self.current_hour != self.planned_hour_end:
+            self.planned_hour_end = self.current_hour
         # ---------------------------------------------------------------------------------
         
-        self.selected_bws = self.hour_difference(self.planned_hour/3600, self.selected_shift_start_hour) * 3600
+        self.selected_bws = self.hour_difference(self.planned_hour_end/3600, self.selected_shift_start_hour) * 3600
         # if for example bws for night shift finished at 02 and next shift time is next day 04 than bws = 1 day + 2h
         
         if 5*3600 > self.selected_bws:
             self.selected_bws += (24*3600) 
 
-        self.planned_hour_start = self.planned_hour
-        self.planned_hour = self.selected_shift_start_hour*3600
+        self.planned_hour_start = self.planned_hour_end
+        self.planned_hour_end = self.selected_shift_start_hour*3600
         # -----------------------------------------------------------------------------------------------------
 
         # start the bws time count and assign status ----------------------------------------------------------
@@ -381,7 +377,7 @@ class Driver:
                 self.break_time = 0
                 if duration != 0:
                     self.break_time -= duration
-                    self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
+                    self.planned_hour_end = self.second_stabilizer(self.planned_hour_end+duration)
                     duration = 0
             else:
                 self.break_time -= duration
@@ -393,7 +389,7 @@ class Driver:
                 self.bw_shifts = 0
                 if duration != 0:
                     self.bw_shifts -= duration
-                    self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
+                    self.planned_hour_end = self.second_stabilizer(self.planned_hour_end+duration)
                     duration = 0
             else:
                 self.bw_shifts -= duration
@@ -415,10 +411,11 @@ class Driver:
                     duration = 0
                     self.break_time_durations[0] = self.break_time
             if duration != 0:
-                self.planned_hour = self.second_stabilizer(self.planned_hour+duration)
+                self.planned_hour_end = self.second_stabilizer(self.planned_hour_end+duration)
                 duration = 0   
-            if len(self.break_time_durations) == 0: 
+            if len(self.break_time_durations) == 0 and self.ready_for_break: 
                 self.ready_for_break = False   
+                self.break_time=0
     # -------------------------------------------------------------------------------------
 
     # functions that end a shift behavior -------------------------------------------------
@@ -431,17 +428,14 @@ class Driver:
 
         # calculate selected bws ------------------------------------------------------------
         self.selected_bws = self.week
-        # decide on the next shift start time&day and update planned_hour 
+        # decide on the next shift start time&day and update planned_hour_end 
         start_day = random.randint(1,4)
-        if self.preferred_latest >= self.preferred_earliest:
-            self.selected_shift_start_hour = random.randint(self.preferred_earliest, self.preferred_latest)
-        else:
-            self.selected_shift_start_hour = self.hour_stabilizer(random.randint(self.preferred_earliest, self.preferred_latest+24))
+        self.selected_shift_start_hour = self.randomize_time(self.preferred_earliest, self.preferred_latest)
         # -----------------------------------------------------------------------------------
 
         # calculate bws duration ------------------------------------------------------------
         if self.week <= 24*3600 and start_day == 1:
-            difference = self.hour_difference(self.planned_hour/3600, self.selected_shift_start_hour) 
+            difference = self.hour_difference(self.planned_hour_end/3600, self.selected_shift_start_hour) 
             # if for example week ended at 23:00 sunday and selected start is 01:00 than driver should start
             # on tuesday 
             if 24 > difference:
@@ -450,8 +444,8 @@ class Driver:
         self.selected_bws += ((start_day-1)*24*3600)
         # -----------------------------------------------------------------------------------
         
-        self.planned_hour_start = self.planned_hour
-        self.planned_hour = self.selected_shift_start_hour*3600
+        self.planned_hour_start = self.planned_hour_end
+        self.planned_hour_end = self.selected_shift_start_hour*3600
 
         # start the bws time count and assign status ----------------------------------------
         self.shift_time = 0
@@ -470,16 +464,19 @@ class Driver:
 
             :param veh_obj: the vehicle of this driver
             """
-            self.rested += (veh_obj.cb_start_break - self.break_time)
-            veh_obj.end_break()
-            self.number_of_breaks -= 1
-            del self.break_time_durations[0]
-            del self.break_time_points[0]
+            if self.ready_for_break:
+                self.rested += (veh_obj.cb_start_break - self.break_time)
+                veh_obj.end_break()
+                self.number_of_breaks -= 1
+                del self.break_time_durations[0]
+                del self.break_time_points[0]
+                
             self.without_break = 0
             self.on_break = False
 
             if self.number_of_breaks == 0:
                 self.ready_for_break = False
+                self.break_time = 0
             else:
                 self.break_time = self.break_time_durations[0]
 
@@ -490,19 +487,19 @@ class Driver:
         This function is called when the taken shift duration is over.
         """
         # update clock if necessary -------------------------------------------------------
-        if self.current_hour != self.planned_hour:
-            self.planned_hour = self.current_hour
+        if self.current_hour != self.planned_hour_end:
+            self.planned_hour_end = self.current_hour
         # ---------------------------------------------------------------------------------
             
         exceed = -1 * veh_obj.driver.shift_time
         self.total_overtime += exceed
+        self.expected_overtime += self.daily_overtime
         if self.daily_overtime != exceed:
-            self.expected_overtime = self.daily_overtime
             self.daily_overtime = exceed
         
         # daily summary -----------------------------------------------------------------------------------------------------------------------
-        veh_obj.end_shift()
         self.worked += self.selected_shift_time + exceed
+        veh_obj.end_shift()
         # --------------------------------------------------------------------------------------------------------------------------------------    
     
     def reset_shift_variables(self):
@@ -575,6 +572,7 @@ class Driver:
             if (len(self.break_time_points) == 0 and self.shift_time >= 900) or (len(self.break_time_points) > 0 and c_time + 1 <= self.break_time_points[0] - 900):
                 self.break_time_points.insert(0,c_time)
                 self.break_time_durations.insert(0,600)
+                self.planned_hour_end = self.second_stabilizer(self.planned_hour_end + 600)
                 self.number_of_breaks += 1 
                 self.ready_for_break = True
 
@@ -641,15 +639,18 @@ class Driver:
         if self.current_hour >= 24*3600:
             self.current_hour -= (24*3600)
 
+        # if week is over
         if self.week <= 0: 
             if veh_obj.status != VRL_STATES.ON_SHIFT_BREAK and not self.on_shift_break: 
                 self.weekly_shift_time += self.shift_time
+                 # if vehicle is on break at the week end
                 if veh_obj.status == VRL_STATES.ON_BREAK or self.on_break: 
                     self.rested -= self.break_time
                 self.week_start()
                 if veh_obj.status == VRL_STATES.ON_BREAK or self.on_break: 
                     veh_obj.cb_start_break = self.break_time
                 self.weekly_shift_time -= self.shift_time
+            # if vehicle is on shift break at the week end
             else:
                 self.rested -= self.bw_shifts
                 self.week_start()
@@ -679,16 +680,32 @@ class Driver:
             return 0 
         
     def hour_stabilizer(self, hour):
+        """
+        This function corrects if the variable given in hours has an incorrect value. 
+        """
         if hour >= 24:
             return hour - 24
         else: 
             return hour 
         
     def second_stabilizer(self, second):
+        """
+        This function corrects if the variable given in seconds has an incorrect value. 
+        """
         if second >= 24*3600:
             return second - 24*3600
         else: 
             return second 
+
+    def randomize_time(self,start,end):
+        """
+        This function finds an hour between the given range. 
+        """
+        if end >= start:
+            result = self.hour_stabilizer(random.randint(start, end))
+        else:
+            result = self.hour_stabilizer(random.randint(start, end+24))
+        return result
     # ------------------------------------------------------------------------------------
 
     

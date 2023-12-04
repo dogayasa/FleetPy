@@ -125,6 +125,7 @@ class PoolingInsertionHeuristicOnly(FleetControlBase):
                 if self.sim_vehicles[vid].driver is not None and self.sim_vehicles[vid].driver.four_hour_zone and self.rv_heuristics[G_RVH_SB]:
                     self.sim_vehicles[vid].driver.break_time_points.insert(0,self.sim_vehicles[vid].driver.selected_shift_time - self.sim_vehicles[vid].driver.shift_time+sum(vehplan.shift_decreases)+1)
                     self.sim_vehicles[vid].driver.break_time_durations.insert(0,900)
+                    self.sim_vehicles[vid].driver.planned_hour_end = self.sim_vehicles[vid].driver.second_stabilizer(self.sim_vehicles[vid].driver.planned_hour_end + 900)
                     self.sim_vehicles[vid].driver.number_of_breaks += 1 
                     self.sim_vehicles[vid].driver.ready_for_break = True
                                    

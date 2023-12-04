@@ -212,49 +212,65 @@ if __name__ == "__main__":
         """
 
 
-        #""" 
+        """ 
         # 1 - Base scenario for 8 days. -----------------------------------------------
         log_level = "info"
         cc = os.path.join(scs_path, "0_const_DO.csv")
         sc = os.path.join(scs_path, "0_base_8d_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
+        """
 
-        #""" 
+        """ 
         # 2 - Base scenario for 5 days. -----------------------------------------------
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_DO.csv")
         sc = os.path.join(scs_path, "1_base_5d_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
+        """
 
-        #"""
+        """
         # 3 - Base scenario for 5 days with larger fleet size.  -----------------------
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_DO.csv")
         sc = os.path.join(scs_path, "2_base_5d_larger_fl_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
+        """
 
-        #""" 
+        """ 
         # 4 - Scenario with different shift start hour gap for 5 days. ----------------
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_DO.csv")
         sc = os.path.join(scs_path, "3_start_hour_5d_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
+        """
 
-        #""" 
+        """ 
         # 5 - Scenario with different shift start hour gap and larger fl. size for 5d -
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_DO.csv")
         sc = os.path.join(scs_path, "4_start_hour_5d_larger_fl_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
+        """
+
+        #""" 
+        # 6 - Base scenario for 14 days. -----------------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "6_const_DO.csv")
+        sc = os.path.join(scs_path, "6_base_14d_DO.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
         #"""
 
-
+        """ 
+        # 7 - Base scenario for 14 days 0.05. -----------------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "7_const_DO.csv")
+        sc = os.path.join(scs_path, "7_base_14d_DO.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """

@@ -217,20 +217,20 @@ if __name__ == "__main__":
         # -----------------------------------------------------------------------------
         # """
 
-        # """
+        """
         # 2 - Base fleet scenario for 5 days. -----------------------------------------
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_AO.csv")
         sc = os.path.join(scs_path, "1_base_5d_AO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        # """
+        """
 
-        #"""
+        """
         # 3 - Smaller fleet scenario for 5 days. --------------------------------------
         log_level = "info"
         cc = os.path.join(scs_path, "1_const_AO.csv")
         sc = os.path.join(scs_path, "2_smaller_fl_5d_AO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
+        """
