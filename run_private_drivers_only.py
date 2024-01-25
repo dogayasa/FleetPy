@@ -257,20 +257,11 @@ if __name__ == "__main__":
         # -----------------------------------------------------------------------------
         """
 
-        #""" 
-        # 6 - Base scenario for 14 days. -----------------------------------------------
+        # """ 
+        # 6 - Base scenario for 14 days 0.05. -----------------------------------------------
         log_level = "info"
         cc = os.path.join(scs_path, "6_const_DO.csv")
         sc = os.path.join(scs_path, "6_base_14d_DO.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
-        #"""
-
-        """ 
-        # 7 - Base scenario for 14 days 0.05. -----------------------------------------------
-        log_level = "info"
-        cc = os.path.join(scs_path, "7_const_DO.csv")
-        sc = os.path.join(scs_path, "7_base_14d_DO.csv")
-        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
-        # -----------------------------------------------------------------------------
-        """
+        # """

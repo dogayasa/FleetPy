@@ -204,34 +204,172 @@ if __name__ == "__main__":
    
         """
         EXPERIMENTS FOR HETEROGENEOUS FLEET 
-        1 - Base heterogeneous fleet scenario for 8 days.
-        2 - Base heterogeneous fleet scenario for 5 days. 
-        3 - Smaller fleet scenario for 5 days. 
         """
 
-        # """
-        # 1 - Base heterogeneous fleet scenario for 8 days. --------------------------
-        log_level = "info"
-        cc = os.path.join(scs_path, "0_const_HT.csv")
-        sc = os.path.join(scs_path, "0_base_8_days_HT.csv")
-        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
-        # -----------------------------------------------------------------------------
-        # """
-
-        # """ 
-        # 2 - Base heterogeneous fleet scenario for 5 days.  --------------------------
-        log_level = "info"
-        cc = os.path.join(scs_path, "1_const_HT.csv")
-        sc = os.path.join(scs_path, "1_base_5_days_HT.csv")
-        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
-        # -----------------------------------------------------------------------------
-        # """
+        # WITH DIFFERENT RATIOS
 
         #""" 
-        # 3 - Smaller fleet scenario for 5 days. --------------------------------------
+        # 1 - (10-90) for 8 days. --------------------------------------
         log_level = "info"
-        cc = os.path.join(scs_path, "1_const_HT.csv")
-        sc = os.path.join(scs_path, "2_smaller_fl_5d_HT.csv")
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "1_basic_hetero_10_90.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 2 - (20-80) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "2_basic_hetero_20_80.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        
+        """ 
+        # 3 - (30-70) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "3_basic_hetero_30_70.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+        
+        """ 
+        # 4 - (40-60) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "4_basic_hetero_40_60.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 5 - (50-50) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "5_basic_hetero_50_50.csv")
         run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
         # -----------------------------------------------------------------------------
         #"""
+
+        """ 
+        # 6 - (60-40) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "6_basic_hetero_60_40.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 7 - (70-30) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "7_basic_hetero_70_30.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 8 - (80-20) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "8_basic_hetero_80_20.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 9 - (90-10) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "9_basic_hetero_90_10.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        #"""
+
+        # WORK LIFE BALANCE 
+
+        """ 
+        # 10 - WL (10-90) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "10_balance_hetero_10_90.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 11 - WL (20-80) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "11_balance_hetero_20_80.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+
+        """ 
+        # 12 - WL (30-70) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "12_balance_hetero_30_70.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 13 - WL (40-60) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "13_balance_hetero_40_60.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 14 - WL (50-50) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "14_balance_hetero_50_50.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 15 - WL (60-40) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "15_balance_hetero_60_40.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 16 - WL (70-30) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "16_balance_hetero_70_30.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 17 - WL (80-20) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "17_balance_hetero_80_20.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
+
+        """ 
+        # 18 - WL (90-10) for 8 days. --------------------------------------
+        log_level = "info"
+        cc = os.path.join(scs_path, "0_const_HT_8d.csv")
+        sc = os.path.join(scs_path, "18_balance_hetero_90_10.csv")
+        run_scenarios(cc, sc, log_level=log_level, n_cpu_per_sim=10, n_parallel_sim=1)
+        # -----------------------------------------------------------------------------
+        """
