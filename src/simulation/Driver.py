@@ -11,9 +11,8 @@ LOG = logging.getLogger(__name__)
 class Driver: 
     def __init__(self, shift_data, veh_obj):     
 
-        # output variables ----
+        # output variables --------
         self.taken_shift = 0
-        # weekly
         self.worked = 0
         self.rested = 0
         self.total_overtime = 0
@@ -21,9 +20,10 @@ class Driver:
         self.expected_overtime = 0
         self.decreased_break = 0
         self.start_passengers = 0 
-        # ---------------------
+        self.day = 1 
+        # -------------------------
 
-        # SelectRV -> take break after 4h of working
+        # take break after 4h of working
         self.four_hour_zone = False
 
         # standards (st) that won't be changed ------------------------
@@ -37,12 +37,14 @@ class Driver:
         self.min_num_breaks = int(shift_data[G_MIN_NUMBER_BREAKS])
         self.max_num_breaks = int(shift_data[G_MAX_NUMBER_BREAKS])
 
+        # defining intervalls of the shift behavior
         self.planned_hour_end = 0 
         self.current_hour = 0
         self.planned_hour_start = 0
 
+        # check input to see if they are given in correct format
         self.check_input()
-        
+         
         # day or night ---------------------------------------------------------
         self.preferred_earliest = int(shift_data[G_EARLIEST_START]) 
         self.preferred_latest = int(shift_data[G_LATEST_START]) 
@@ -601,6 +603,7 @@ class Driver:
         """
         This function checks if the given inputs are logical.
         """
+        # For simplification reasons data start time is assumed to be Monday 00:00.
         if self.min_shift_time > self.max_shift_time or self.max_break_time > self.min_shift_time or self.min_break_time > self.max_break_time or self.max_shift_time > self.st_bw_shifts or self.min_week_time > self.max_week_time or self.max_shift_time > self.min_week_time or self.min_num_breaks > self.max_num_breaks:
             print("ERROR! Input variables for driver is wrong.")
             print("Hint: Look out for min and max in input names.")
@@ -636,8 +639,10 @@ class Driver:
         """
         self.week -= time_passed 
         self.current_hour += time_passed
+        # if day is over
         if self.current_hour >= 24*3600:
             self.current_hour -= (24*3600)
+            self.day += 1
 
         # if week is over
         if self.week <= 0: 

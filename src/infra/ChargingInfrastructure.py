@@ -615,7 +615,7 @@ class PublicChargingInfrastructureOperator:
                         end_booking_flag = True
                     if end_booking_flag:
                         if running_processes.get(socket_id) is None or running_processes.get(socket_id).id != booking_id:
-                            LOG.debug("end unrealized booking at time {} at station {} socket {}: {}".format(sim_time, s_id, socket_id, booking_id))
+                            LOG.info("end unrealized booking at time {} at station {} socket {}: {}".format(sim_time, s_id, socket_id, booking_id))
                             try:
                                 ch_process = charging_station._booked_processes[booking_id]
                                 charging_station.cancel_booking(sim_time, ch_process)

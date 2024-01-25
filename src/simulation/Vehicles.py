@@ -389,6 +389,8 @@ class SimulationVehicle:
                 record_dict[G_VR_REPLAY_ROUTE] = route_replay_str
             
             # shift behavior of the leg -----------------------------------------
+            record_dict[G_VR_LEG_REMAINING_SHIFT] = None
+            record_dict[G_VR_LEG_DECREASED_SHIFT] = None   
             if self.driver is not None and self.shift_check: 
                 record_dict[G_VR_LEG_REMAINING_SHIFT] = self.driver.shift_time
                 record_dict[G_VR_LEG_DECREASED_SHIFT] = self.cl_start_shift - self.driver.shift_time            
@@ -513,6 +515,7 @@ class SimulationVehicle:
             record_dict[G_CLOCK_START] = self.driver.planned_hour_start / 3600
             record_dict[G_CLOCK_FIN] = self.driver.planned_hour_end / 3600
 
+            record_dict[G_VD_CALENDAR_DAY] = self.driver.day
             record_dict[G_VD_SHIFT_COUNT] = self.driver.taken_shift
 
             record_dict[G_VD_WORKED_TOTAL] = self.driver.worked
@@ -597,7 +600,7 @@ class SimulationVehicle:
         :return:(dict of boarding requests -> (time, position), dict of alighting request objects -> (time, position), list of passed VRL, dict_start_alighting)
         :rtype: list
         """
-        LOG.debug(f"update veh state {current_time} -> {next_time} : {self}")
+        LOG.info(f"update veh state {current_time} -> {next_time} : {self}")
         dict_boarding_requests = {}
         dict_start_alighting = {}
         dict_alighting_requests = {}

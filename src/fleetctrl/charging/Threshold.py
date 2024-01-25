@@ -62,11 +62,12 @@ class ChargingThresholdPublicInfrastructure(ChargingBase):
             
             shift_check = self.fleetctrl.rv_heuristics.get(G_RVH_SB, 0)
             # if vehicle starts shift break, driver directly charges the vehicle (unless it is %50) ------------
-            if veh_obj.status == VRL_STATES.ON_SHIFT_BREAK and last_soc < 0.5:
-                is_charging_required = True 
-                if len(veh_obj.assigned_route) > 0:
-                    if veh_obj.assigned_route[0].status == VRL_STATES.TO_CHARGE or veh_obj.assigned_route[0].status == VRL_STATES.CHARGING or veh_obj.assigned_route[0].status == VRL_STATES.WAITING: 
-                        is_charging_required = False
+            if veh_obj.driver is not None:
+                if (veh_obj.status == VRL_STATES.ON_SHIFT_BREAK or veh_obj.driver.on_shift_break) and last_soc < 0.5:
+                    is_charging_required = True 
+                    if len(veh_obj.assigned_route) > 0:
+                        if veh_obj.assigned_route[0].status == VRL_STATES.TO_CHARGE or veh_obj.assigned_route[0].status == VRL_STATES.CHARGING or veh_obj.assigned_route[0].status == VRL_STATES.WAITING: 
+                            is_charging_required = False
             # -----------------------------------------------------------------------------------------------------------------------------
 
             if is_charging_required is True:
@@ -93,7 +94,7 @@ class ChargingThresholdPublicInfrastructure(ChargingBase):
                             best_charging_poss = ch_op_best
                             best_ch_op = ch_op
                 if best_charging_poss is not None:
-                    LOG.debug(f" -> best charging possibility: {best_charging_poss}")
+                    LOG.info(f" -> best charging possibility: {best_charging_poss} for veh {veh_obj}")
                     (station_id, socket_id, possible_start_time, possible_end_time, desired_veh_soc, max_charging_power) = best_charging_poss
                     booking = best_ch_op.book_station(sim_time, veh_obj, station_id, socket_id, possible_start_time, possible_end_time)
                     station = best_ch_op.station_by_id[station_id]

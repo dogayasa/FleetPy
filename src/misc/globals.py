@@ -528,7 +528,8 @@ G_V_INIT_BW_SHIFTS = "final_bw_shifts"
 # Vehicle Shift Output
 # --------------------
 G_V_DRIVER = "has_driver?"
-G_VD_SHIFT_COUNT = "on_which_day"
+G_VD_SHIFT_COUNT = "taken_shift"
+G_VD_CALENDAR_DAY = "day"
 
 G_VD_WORKED_TOTAL = "worked_total"
 G_VD_SELECTED_SHIFT_TIME = "selected_shift_time"
@@ -541,14 +542,6 @@ G_VD_RESTED_TOTAL = "rested_total"
 G_VD_SELECTED_REST_TIME = "selected_rest_time"
 G_VD_SELECTED_BREAK_NO = "selected_number_of_breaks"
 G_VD_TAKEN_BREAK_NO = "number_of_taken_breaks"
-
-class DRIVER_SHIFTS(Enum):
-    DAY_SHIFT = (0, "day_shift")
-    NIGHT_SHIFT = (1, "night_shift")
-
-    @DynamicClassAttribute
-    def shift_name(self):
-        return self._value_[1]
 
 # Vehicle Status
 # --------------
@@ -642,6 +635,7 @@ G_VTYPE_SHIFT_FILE = "shift_file"
 
 # -------------------------------------------------------------------------------------------------------------------- #
 # shift behavior
+# For simplification reasons data start time is assumed to be Monday 00:00. 
 G_STANDARD_MIN_SHIFT_TIME = "min_shift_time"
 G_STANDARD_MAX_SHIFT_TIME = "max_shift_time"
 G_STANDARD_MIN_BREAK_TIME = "min_break_time"
