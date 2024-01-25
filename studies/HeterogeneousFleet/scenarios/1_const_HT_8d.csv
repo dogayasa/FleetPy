@@ -7,7 +7,7 @@ demand_name,8_days_nyc_demand
 rq_file,
 random_seed,0
 start_time,0
-end_time,691200
+end_time,172800
 time_step,60
 route_output_flag,False
 replay_flag,False
