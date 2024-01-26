@@ -148,8 +148,9 @@ class RepositioningBase(ABC):
         for vid, current_veh_plan in self.fleetctrl.veh_plans.items():
             veh_obj = self.fleetctrl.sim_vehicles[vid]
             # don't consider the vehicles on break 
-            if veh_obj.status == VRL_STATES.ON_BREAK or veh_obj.status == VRL_STATES.ON_SHIFT_BREAK:
-                continue
+            if veh_obj.driver is not None:
+                if veh_obj.status == VRL_STATES.ON_BREAK or veh_obj.status == VRL_STATES.ON_SHIFT_BREAK or veh_obj.driver.on_shift_break or veh_obj.driver.on_break or veh_obj.driver.shift_time <= 3600:
+                    continue
             # 1) idle vehicles
             if not current_veh_plan.list_plan_stops:
                 zone_id = self.zone_system.get_zone_from_pos(veh_obj.pos)
@@ -243,6 +244,7 @@ class RepositioningBase(ABC):
             ps = RoutingTargetPlanStop((destination_node, None, None), locked=lock, planstop_state=G_PLANSTOP_STATES.REPO_TARGET)
             veh_plan.add_plan_stop(ps, veh_obj, sim_time, self.routing_engine)
             self.fleetctrl.assign_vehicle_plan(veh_obj, veh_plan, sim_time) 
+            LOG.info("{} for vehicle {} with features {}".format(lock,veh_obj.vid, veh_obj))
             if lock:
                 self.fleetctrl.lock_current_vehicle_plan(veh_obj.vid)
             if len(veh_obj.assigned_route) == 0 or veh_plan.feasible == False:

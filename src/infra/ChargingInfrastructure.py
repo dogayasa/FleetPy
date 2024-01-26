@@ -122,10 +122,12 @@ class ChargingStation:
         self._current_processes: Dict[int, Optional[ChargingProcess]] = {ID: None for ID in self._sockets}
 
     def __add_to_scheduled(self, booking: ChargingProcess):
+        LOG.info("added the booking {}".format(booking.id))
         self._booked_processes[booking.id] = booking
         self._socket_bookings[booking.socket_id].append(booking)
 
     def __remove_from_scheduled(self, booking: ChargingProcess):
+        LOG.info("removed the booking {}".format(booking.id))
         del self._booked_processes[booking.id]
         self._socket_bookings[booking.socket_id].remove(booking)
 
@@ -180,8 +182,8 @@ class ChargingStation:
 
         socket = self._sockets[booking.socket_id]
         found_empty_socket = socket.attach(sim_time, booking.veh)
-        LOG.debug(f"start charging process: {booking} at time {sim_time}")
-        LOG.debug(f"with schedule {self.get_current_schedules(sim_time)}")
+        LOG.info(f"start charging process: {booking} at time {sim_time}")
+        LOG.info(f"with schedule {self.get_current_schedules(sim_time)}")
         assert found_empty_socket is True, f"unable to connect to the socket {socket} at station {self.id}"
         self._vid_socket_dict[booking.veh.vid] = socket
         self._current_processes[socket.id] = booking

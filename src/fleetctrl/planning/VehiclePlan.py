@@ -933,7 +933,7 @@ class VehiclePlan:
             # calculate boarding times------------------------------------------------------------------------------
             number_stops = len(veh_obj.boarding_alighting_points)
             shift_decrease += veh_obj.const_bt * (number_stops+2)
-            if veh_obj.driver.shift_time - shift_decrease <= 0: 
+            if veh_obj.driver.shift_time - (shift_decrease+1800) <= 0: 
                 is_feasible = False
                 infeasible_index = len(self.list_plan_stops)-1
                 keep_feasible = False

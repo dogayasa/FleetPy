@@ -478,6 +478,7 @@ class FleetControlBase(metaclass=ABCMeta):
         """
         LOG.debug(f"assign to {veh_obj.vid} at time {sim_time} : {vehicle_plan}")
         is_feasible = vehicle_plan.update_tt_and_check_plan(veh_obj, sim_time, self.routing_engine, keep_feasible=True)
+        LOG.info("{} for vehicle {} with features {}".format(is_feasible,veh_obj.vid, veh_obj))
         if self._vid_to_assigned_charging_process.get(veh_obj.vid) is not None:
             veh_plan_ch_task = None
             for ps in vehicle_plan.list_plan_stops:

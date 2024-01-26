@@ -84,7 +84,7 @@ class ChargingThresholdPublicInfrastructure(ChargingBase):
                         if best_charging_poss is None or ch_op_best[3] < best_charging_poss[3]:
                             if veh_obj.driver is not None and shift_check:
                                 # ensure you are within the shift or within the break
-                                next_hour = ((ch_op_best[3]-last_time) + veh_obj.driver.current_hour + 7200)/3600
+                                next_hour = ((ch_op_best[3]+1800-last_time) + veh_obj.driver.current_hour + 7200)/3600
                                 if next_hour >= 24:
                                     next_hour -= 24
                                 if veh_obj.status != VRL_STATES.ON_SHIFT_BREAK and (ch_op_best[3]-last_time >= veh_obj.driver.shift_time or veh_obj.driver.order_chrono(next_hour, veh_obj.driver.planned_hour_end/3600, veh_obj.driver.planned_hour_start/3600) == 1): 

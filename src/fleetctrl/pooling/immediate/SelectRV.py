@@ -89,7 +89,7 @@ def filter_least_number_tasks(list_veh_obj, nr_best_veh, selected_veh):
 
 def filter_enough_shift_time(veh_plan : VehiclePlan, veh_obj : SimulationVehicle, routing_engine : NetworkBase, prq : PlanRequest):
     
-    shift_decrease = sum(veh_plan.shift_decreases)
+    shift_decrease = sum(veh_plan.shift_decreases) + 1800 
 
     # calculate boarding times------------------------------------------------------------------------------
     number_stops = len(veh_obj.boarding_alighting_points)

@@ -32,7 +32,7 @@ def get_travel_times_available(network_path, network_dynamics_file):
     routing_engine = Network(network_path, network_dynamics_file)
     travel_times = []
     folders_found = {}
-    for sim_time, folder in routing_engine.travel_time_file_folders.items():
+    for sim_time, folder in routing_engine.travel_time_file_infos.items():
         if folders_found.get(folder):
             continue
         folders_found[folder] = 1
@@ -175,6 +175,7 @@ if __name__ == "__main__":
     2 (optional): int number of cores to use for preprocessing
     3 (optional): name of network dynamics file
     """
+    #sys.argv = ["create_partially_preprocessed_travel_time_tables.py", "new_scenario", "4410", "10", "8_days_tt_factors.csv"] #delete
     number_cores = 1
     network_dynamics_file = None
     nw_name = sys.argv[1]
