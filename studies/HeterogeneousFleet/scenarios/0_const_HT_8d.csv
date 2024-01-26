@@ -3,7 +3,7 @@ Input_Parameter_Name,Parameter_Value
 sim_env,ImmediateDecisionsSimulation
 network_type,NetworkPartialPreprocessedCpp
 network_name,new_scenario
-network_dynamics,8_days_tt_factors.csv
+nw_dynamic_f,8_days_tt_factors.csv
 demand_name,new_scenario_demand
 rq_file,
 random_seed,0
