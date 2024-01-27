@@ -478,7 +478,7 @@ class FleetControlBase(metaclass=ABCMeta):
         """
         LOG.debug(f"assign to {veh_obj.vid} at time {sim_time} : {vehicle_plan}")
         is_feasible = vehicle_plan.update_tt_and_check_plan(veh_obj, sim_time, self.routing_engine, keep_feasible=True)
-        LOG.info("{} for vehicle {} with features {}".format(is_feasible,veh_obj.vid, veh_obj))
+        # LOG.info("{} for vehicle {} with features {}".format(is_feasible,veh_obj.vid, veh_obj))
         if self._vid_to_assigned_charging_process.get(veh_obj.vid) is not None:
             veh_plan_ch_task = None
             for ps in vehicle_plan.list_plan_stops:
@@ -503,6 +503,7 @@ class FleetControlBase(metaclass=ABCMeta):
                 return
         new_list_vrls = self._build_VRLs(vehicle_plan, veh_obj, sim_time)
         veh_obj.assign_vehicle_plan(new_list_vrls, sim_time, force_ignore_lock=force_assign)
+        LOG.debug("{} assigned and will be finished at {}".format(veh_obj, self.sim_time + sum(vehicle_plan.shift_decreases))) #delete
         self.veh_plans[veh_obj.vid] = vehicle_plan
         for rid in get_assigned_rids_from_vehplan(vehicle_plan):
             pax_info = vehicle_plan.get_pax_info(rid)
@@ -517,6 +518,12 @@ class FleetControlBase(metaclass=ABCMeta):
         :param simulation_time: current simulation time
         :type simulation_time: float
         """
+        for veh in self.sim_vehicles:
+            if veh.driver is not None:
+                if veh.driver.on_shift_break:
+                    for ps in self.veh_plans[veh.vid].list_plan_stops:
+                        if ps.get_charging_task_id() is None:
+                            self.veh_plans[veh.vid].list_plan_stops.remove(ps)
         # check whether reservation requests should be considered as immediate requests
         rids_to_reveal = self.reservation_module.reveal_requests_for_online_optimization(simulation_time)
         for rid in rids_to_reveal:
@@ -743,7 +750,7 @@ class FleetControlBase(metaclass=ABCMeta):
         # -------------------
         if self.repo is not None and (sim_time % self.repo_time_step == 0 or repo_activated_veh):
             t0 = time.perf_counter()
-            LOG.info("Calling repositioning algorithm! (because of activated vehicles? {})".format(repo_activated_veh))
+            LOG.debug("Calling repositioning algorithm! (because of activated vehicles? {} at {})".format(repo_activated_veh,sim_time))
             # vehplans no longer locked, because repo called very often
             self.repo.determine_and_create_repositioning_plans(sim_time)
             add_dyn_dict[G_FCTRL_CT_REPO] = round(time.perf_counter() - t0, 3)

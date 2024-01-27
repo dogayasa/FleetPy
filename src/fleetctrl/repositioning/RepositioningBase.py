@@ -244,7 +244,7 @@ class RepositioningBase(ABC):
             ps = RoutingTargetPlanStop((destination_node, None, None), locked=lock, planstop_state=G_PLANSTOP_STATES.REPO_TARGET)
             veh_plan.add_plan_stop(ps, veh_obj, sim_time, self.routing_engine)
             self.fleetctrl.assign_vehicle_plan(veh_obj, veh_plan, sim_time) 
-            LOG.info("{} for vehicle {} with features {}".format(lock,veh_obj.vid, veh_obj))
+            # LOG.info("{} for vehicle {} with features {}".format(lock,veh_obj.vid, veh_obj))
             if lock:
                 self.fleetctrl.lock_current_vehicle_plan(veh_obj.vid)
             if len(veh_obj.assigned_route) == 0 or veh_plan.feasible == False:

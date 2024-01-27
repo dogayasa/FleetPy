@@ -554,6 +554,7 @@ class SimulationVehicle:
             vrl.rq_dict = {1:boarding_list, -1:alighting_list}
         #LOG.debug(f"Vehicle {self.vid} received new VRLs {[str(x) for x in list_route_legs]} at time {sim_time}")
         #LOG.debug(f"  -> current assignment: {self.assigned_route}")
+        #LOG.info("Vehicle {} with features {} old route:{} and assigned with {}".format(self.vid, self,self.assigned_route, list_route_legs))
         start_flag = True
         if self.assigned_route:
             if not list_route_legs or list_route_legs[0] != self.assigned_route[0]:
@@ -578,7 +579,6 @@ class SimulationVehicle:
                             raise AssertionError("assign_vehicle_plan(): Trying to assign new VRLs instead of a locked VRL.")
             else:
                 start_flag = False
-
         self.assigned_route = list_route_legs
         if list_route_legs:
             if start_flag:
@@ -600,7 +600,8 @@ class SimulationVehicle:
         :return:(dict of boarding requests -> (time, position), dict of alighting request objects -> (time, position), list of passed VRL, dict_start_alighting)
         :rtype: list
         """
-        LOG.info(f"update veh state {current_time} -> {next_time} : {self}")
+        if self.driver is not None:
+            LOG.debug(f"update veh state {current_time} -> {next_time} : {self} with shift time {self.driver.shift_time}")
         dict_boarding_requests = {}
         dict_start_alighting = {}
         dict_alighting_requests = {}
