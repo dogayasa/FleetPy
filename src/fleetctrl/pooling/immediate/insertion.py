@@ -626,7 +626,7 @@ def insert_prq_in_selected_veh_list(selected_veh_obj_list : List[SimulationVehic
         selected[0].driver.daily_overtime += selected[1][2]
         selected[0].driver.planned_hour_end = selected[0].driver.second_stabilizer(selected[0].driver.planned_hour_end + selected[1][2])
         insertion_return_list.append((selected[0].vid, selected[1][0], selected[1][1]))
-        assumed_shift_str += f"Vehicle {selected[0].vid} with the least overtime is assigned with the request\n"
+        assumed_shift_str += f"Vehicle {selected[0].vid} with the least overtime and with shift time {selected[0].driver.shift_time} is assigned with the request\n"
+        LOG.info("{} It will have a shift decrease of {} seconds!".format(assumed_shift_str, sum(selected[1][0].shift_decreases)))
     # -----------------------------------------------------------------------------------------------------
-    LOG.info(assumed_shift_str)
     return insertion_return_list

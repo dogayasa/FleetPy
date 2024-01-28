@@ -613,7 +613,7 @@ class PublicChargingInfrastructureOperator:
                     end_booking_flag = False
                     if end_time <= sim_time:
                         end_booking_flag = True
-                    if end_time - start_time > self.sim_time_step and end_time <= sim_time + self.sim_time_step:
+                    if end_time - start_time > self.sim_time_step and end_time + self.sim_time_step <= sim_time:
                         end_booking_flag = True
                     if end_booking_flag:
                         if running_processes.get(socket_id) is None or running_processes.get(socket_id).id != booking_id:
