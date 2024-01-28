@@ -2,12 +2,13 @@ Input_Parameter_Name,Parameter_Value
 ##1,FleetSimulation
 sim_env,ImmediateDecisionsSimulation
 network_type,NetworkPartialPreprocessedCpp
-network_name,8_days_nyc_network
-demand_name,8_days_nyc_demand
+network_name,new_scenario
+nw_dynamic_f,8_days_tt_factors.csv
+demand_name,new_scenario_demand
 rq_file,
 random_seed,0
 start_time,0
-end_time,691200
+end_time,604800
 time_step,60
 route_output_flag,False
 replay_flag,False
