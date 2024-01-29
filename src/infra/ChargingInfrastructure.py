@@ -131,6 +131,9 @@ class ChargingStation:
         del self._booked_processes[booking.id]
         self._socket_bookings[booking.socket_id].remove(booking)
 
+    def _check_if_booking_is_valid(self, booking: ChargingProcess):
+        return booking.id in self._booked_processes
+
     def calculate_charge_durations(self, veh_object: SimulationVehicle, start_soc=None,
                                    end_soc=1.0) -> Dict[int, float]:
         """ Calculates the charging duration in seconds required to charge the given vehicle
@@ -620,6 +623,8 @@ class PublicChargingInfrastructureOperator:
                             LOG.info("end unrealized booking at time {} at station {} socket {}: {}".format(sim_time, s_id, socket_id, booking_id))
                             try:
                                 ch_process = charging_station._booked_processes[booking_id]
+                                LOG.info("Invalidating booking {}".format(booking_id))
+                                ch_process.invalidate()
                                 charging_station.cancel_booking(sim_time, ch_process)
                             except KeyError:
                                 LOG.warning("couldnt cancel charging booking {}".format(booking_id))

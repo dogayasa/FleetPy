@@ -284,14 +284,15 @@ class SimulationVehicle:
                 self.cl_remaining_time = None
                 list_boarding_pax = []
                 list_start_alighting_pax = []
-            elif ca.stationary_process is not None:
+            elif ca.stationary_process is not None and ca.stationary_process.is_valid():
                 list_boarding_pax = []
                 list_start_alighting_pax = []
                 self._start_next_leg_stationary_object(simulation_time)
             else:
                 # VehicleChargeLeg: check whether duration should be changed (other SOC value or late arrival)
                 if ca.status == VRL_STATES.CHARGING:
-                    ca.set_duration_at_start(simulation_time, self)
+                    # ca.set_duration_at_start(simulation_time, self)
+                    ca.duration = simulation_time
                 self.cl_remaining_route = []
                 if ca.duration is not None:
                     self.cl_remaining_time = ca.duration
@@ -684,7 +685,7 @@ class SimulationVehicle:
                     elif self.driver is not None and (self.status == VRL_STATES.CHARGING or self.status == VRL_STATES.WAITING) and self.shift_check: 
                         self.driver.rest_while_charging(self, remaining_step_time)
                     self.cl_remaining_time -= remaining_step_time
-                    if self.assigned_route[0].stationary_process is not None:
+                    if self.assigned_route[0].stationary_process is not None and self.assigned_route[0].stationary_process.is_valid():
                         self.assigned_route[0].stationary_process.update_state(remaining_step_time)
                     remaining_step_time = 0
                 else:
@@ -697,7 +698,7 @@ class SimulationVehicle:
                     c_time += self.cl_remaining_time
                     # LOG.debug(f"cl remaining time {self.cl_remaining_time}")
                     remaining_step_time -= self.cl_remaining_time
-                    if self.assigned_route[0].stationary_process is not None:
+                    if self.assigned_route[0].stationary_process is not None and self.assigned_route[0].stationary_process.is_valid():
                         self.assigned_route[0].stationary_process.update_state(self.cl_remaining_time)
                     add_alighting_rq, passed_VRL = self.end_current_leg(c_time)
                     # has to check shift behavior because it went charging when on break

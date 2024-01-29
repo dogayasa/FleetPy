@@ -54,6 +54,16 @@ class StationaryProcess(metaclass=ABCMeta):
         """ Updates the state of the stationary process """
         pass
 
+    @abstractmethod
+    def invalidate(self):
+        """ Invalidates the stationary process """
+        pass
+
+    @abstractmethod
+    def is_valid(self):
+        """ Returns True if the stationary process is valid """
+        pass
+
 
 class ChargingProcess(StationaryProcess):
 
@@ -77,12 +87,17 @@ class ChargingProcess(StationaryProcess):
         self.socket_id: int = int(booking_id.split("_")[1])
         self.locked: bool = False
         self._task_started = False
+        self._task_valid = True
+
+    def is_valid(self):
+        return self._task_valid
         
     def __str__(self) -> str:
         return f"charging process: id {self.id} vid {self.veh.vid} station {self.station.id} socked {self.socket_id} start time {self.start_time} end time {self.end_time} started {self._task_started}"
 
     def start_task(self, sim_time):
         """ Connects the vehicle to the socket and returns true for successful connection """
+        assert self._task_valid is True, "Trying to start an invalid charging process"
         self._task_started = self.station.start_charging_process(sim_time, self)
         assert self._task_started is True, "failed to connect to the socket"
         return self._task_started
@@ -97,6 +112,9 @@ class ChargingProcess(StationaryProcess):
 
     def remaining_time_to_start(self, sim_time):
         return self.start_time - sim_time
+
+    def invalidate(self):
+        self._task_valid = False
 
     def remaining_duration_to_finish(self, sim_time):
         if self._task_started is None:
