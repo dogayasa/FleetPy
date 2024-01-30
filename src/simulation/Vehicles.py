@@ -338,7 +338,7 @@ class SimulationVehicle:
         if self.assigned_route and not self.start_next_leg_first:
             ca = self.assigned_route[0]
             LOG.debug(f"Vehicle {self.vid} ends the VRL {ca} at time {simulation_time}")
-            if ca.stationary_process is not None:
+            if ca.stationary_process is not None and ca.stationary_process.is_valid():
                 ca.stationary_process.end_task(simulation_time)
             # record
             record_dict = {}
