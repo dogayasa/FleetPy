@@ -1,0 +1,8 @@
+vtype_name_full,2019_fiat_500e_day_driver_vehtype
+maximum_passengers,4
+daily_fix_cost [cent],2500
+per_km_cost [cent],25
+battery_size [kWh],24
+range [km],135
+source,
+shift_file,newyork_shift_night.csv
