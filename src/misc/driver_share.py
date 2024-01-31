@@ -1,5 +1,5 @@
-fleet_size = 1000
-auto_share = 10
+fleet_size = 1000 # Total number of vehicles in the fleet
+auto_share = 10 # Percentage of AVs in the fleet
 
 # Shares of day and night drivers are obtained from a reference.
 day_driver_share = 0.45
