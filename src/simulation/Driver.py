@@ -411,6 +411,8 @@ class Driver:
                     self.break_time -= duration
                     self.decreased_break += duration
                     duration = 0
+                    if self.break_time < 900:
+                        self.break_time = 900
                     self.break_time_durations[0] = self.break_time
             if duration != 0:
                 self.planned_hour_end = self.second_stabilizer(self.planned_hour_end+duration)
